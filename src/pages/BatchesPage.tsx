@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useBatches, useCreateBatch, useCourses, useTeachers } from '@/hooks/useSupabaseData';
+import { useBatches, useCreateBatch, useTeachers } from '@/hooks/useSupabaseData';
 import { Plus, Users, Calendar, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -14,17 +14,17 @@ const statusColors: Record<string, string> = {
 
 export default function BatchesPage() {
   const { data: batches, isLoading } = useBatches();
-  const { data: courses } = useCourses();
+  
   const { data: teachers } = useTeachers();
   const createBatch = useCreateBatch();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', course_id: '', start_date: '', end_date: '', max_students: '30', teacher_id: '' });
+  const [form, setForm] = useState({ name: '', start_date: '', end_date: '', max_students: '30', teacher_id: '' });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createBatch.mutate(
-      { name: form.name, course_id: form.course_id, start_date: form.start_date, end_date: form.end_date, max_students: parseInt(form.max_students) || 30, ...(form.teacher_id ? { teacher_id: form.teacher_id } : {}) },
-      { onSuccess: () => { setOpen(false); setForm({ name: '', course_id: '', start_date: '', end_date: '', max_students: '30', teacher_id: '' }); } }
+      { name: form.name, start_date: form.start_date, end_date: form.end_date, max_students: parseInt(form.max_students) || 30, ...(form.teacher_id ? { teacher_id: form.teacher_id } : {}) },
+      { onSuccess: () => { setOpen(false); setForm({ name: '', start_date: '', end_date: '', max_students: '30', teacher_id: '' }); } }
     );
   };
 
@@ -50,14 +50,6 @@ export default function BatchesPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-3">
                 <div><Label>Batch Name *</Label><Input required value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Batch A - Morning" /></div>
-                <div>
-                  <Label>Course *</Label>
-                  <select required value={form.course_id} onChange={e => setForm(p => ({ ...p, course_id: e.target.value }))}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <option value="">Select course</option>
-                    {(courses ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
                 <div>
                   <Label>Teacher</Label>
                   <select value={form.teacher_id} onChange={e => setForm(p => ({ ...p, teacher_id: e.target.value }))}
@@ -94,15 +86,12 @@ export default function BatchesPage() {
               <div className="flex items-start justify-between mb-2">
                 <div>
                   <h3 className="font-display font-semibold text-foreground">{batch.name}</h3>
-                  <p className="text-xs text-muted-foreground">{(batch as any).courses?.name || '—'}</p>
+                  <p className="text-xs text-muted-foreground">Teacher: {(batch as any).teachers?.profiles?.first_name ? `${(batch as any).teachers.profiles.first_name} ${(batch as any).teachers.profiles.last_name}` : 'Unassigned'}</p>
                 </div>
                 <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusColors[batch.status] || statusColors.upcoming}`}>
                   {batch.status}
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                Teacher: {(batch as any).teachers?.profiles?.first_name ? `${(batch as any).teachers.profiles.first_name} ${(batch as any).teachers.profiles.last_name}` : 'Unassigned'}
-              </p>
               <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border">
                 <div className="text-center">
                   <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1"><Calendar className="w-3.5 h-3.5" /></div>
