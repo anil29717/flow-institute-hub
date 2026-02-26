@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 
 type AppRole = 'owner' | 'teacher';
 
@@ -18,7 +18,6 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ error: string | null }>;
-  signup: (email: string, password: string, firstName: string, lastName: string, role: AppRole) => Promise<{ error: string | null }>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
 }
@@ -26,14 +25,12 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 async function fetchUserData(userId: string): Promise<AuthUser | null> {
-  // Get profile
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
     .eq('user_id', userId)
     .single();
 
-  // Get role
   const { data: roleData } = await supabase
     .from('user_roles')
     .select('role')
@@ -58,11 +55,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth listener BEFORE checking session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
       if (newSession?.user) {
-        // Use setTimeout to avoid Supabase deadlock
         setTimeout(async () => {
           const userData = await fetchUserData(newSession.user.id);
           setUser(userData);
@@ -74,7 +69,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    // Check existing session
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
       setSession(existingSession);
       if (existingSession?.user) {
@@ -95,30 +89,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: error?.message ?? null };
   };
 
-  const signup = async (email: string, password: string, firstName: string, lastName: string, role: AppRole) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: { first_name: firstName, last_name: lastName },
-      },
-    });
-
-    if (error) return { error: error.message };
-
-    // Assign role (the profile is auto-created via trigger)
-    if (data.user) {
-      const { error: roleError } = await supabase.from('user_roles').insert({
-        user_id: data.user.id,
-        role,
-      });
-      if (roleError) return { error: roleError.message };
-    }
-
-    return { error: null };
-  };
-
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -126,7 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, login, signup, logout, isAuthenticated: !!session }}>
+    <AuthContext.Provider value={{ user, session, loading, login, logout, isAuthenticated: !!session }}>
       {children}
     </AuthContext.Provider>
   );

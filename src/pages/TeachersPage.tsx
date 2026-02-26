@@ -1,11 +1,18 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTeachers } from '@/hooks/useSupabaseData';
-import { Search, Plus, Mail, Phone, Loader2 } from 'lucide-react';
+import { Search, Plus, Mail, Phone, Loader2, X } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function TeachersPage() {
   const [search, setSearch] = useState('');
   const { data: teachers, isLoading } = useTeachers();
+  const { user } = useAuth();
+  const isOwner = user?.role === 'owner';
+  const [showForm, setShowForm] = useState(false);
 
   const filtered = (teachers ?? []).filter(t => {
     const p = (t as any).profiles;
@@ -24,9 +31,12 @@ export default function TeachersPage() {
           <h1 className="text-2xl font-display font-bold text-foreground">Teachers</h1>
           <p className="text-muted-foreground">Manage your teaching staff</p>
         </div>
-        <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">
-          <Plus className="w-4 h-4" /> Add Teacher
-        </button>
+        {isOwner && (
+          <button onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">
+            <Plus className="w-4 h-4" /> Add Teacher
+          </button>
+        )}
       </div>
 
       <div className="relative max-w-sm">
@@ -64,7 +74,7 @@ export default function TeachersPage() {
 
                 <p className="text-sm text-muted-foreground mb-1">{teacher.qualification || 'No qualification listed'}</p>
                 <div className="flex flex-wrap gap-1.5 mb-4">
-                  {(teacher.specialization ?? []).map(s => (
+                  {(teacher.specialization ?? []).map((s: string) => (
                     <span key={s} className="px-2 py-0.5 text-xs rounded-md bg-accent/10 text-accent font-medium">{s}</span>
                   ))}
                 </div>
@@ -87,6 +97,109 @@ export default function TeachersPage() {
           })}
         </div>
       )}
+
+      <AnimatePresence>
+        {showForm && <AddTeacherModal onClose={() => setShowForm(false)} />}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function AddTeacherModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    email: '', password: '', firstName: '', lastName: '', phone: '',
+    employeeId: '', qualification: '', specialization: '', experienceYears: '',
+  });
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(prev => ({ ...prev, [k]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke('create-teacher', {
+        body: {
+          email: form.email,
+          password: form.password,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          phone: form.phone || undefined,
+          employeeId: form.employeeId,
+          qualification: form.qualification || undefined,
+          specialization: form.specialization ? form.specialization.split(',').map(s => s.trim()) : undefined,
+          experienceYears: form.experienceYears ? parseInt(form.experienceYears) : 0,
+        },
+      });
+
+      if (res.error) throw res.error;
+      if (res.data?.error) throw new Error(res.data.error);
+
+      toast.success(`Teacher account created! They can login with ${form.email}`);
+      qc.invalidateQueries({ queryKey: ['teachers'] });
+      qc.invalidateQueries({ queryKey: ['dashboard_stats'] });
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create teacher');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-4"
+      onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-card rounded-xl border border-border p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-display font-bold text-foreground">Add New Teacher</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="First Name" value={form.firstName} onChange={set('firstName')} required />
+            <Field label="Last Name" value={form.lastName} onChange={set('lastName')} required />
+          </div>
+          <Field label="Email" type="email" value={form.email} onChange={set('email')} required />
+          <Field label="Password" type="password" value={form.password} onChange={set('password')} required minLength={6}
+            placeholder="Min 6 characters" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Employee ID" value={form.employeeId} onChange={set('employeeId')} required placeholder="e.g. TCH-001" />
+            <Field label="Phone" value={form.phone} onChange={set('phone')} placeholder="+91 98765 43210" />
+          </div>
+          <Field label="Qualification" value={form.qualification} onChange={set('qualification')} placeholder="e.g. M.Tech, IIT Delhi" />
+          <Field label="Specialization" value={form.specialization} onChange={set('specialization')} placeholder="Comma-separated, e.g. Math, Physics" />
+          <Field label="Experience (years)" type="number" value={form.experienceYears} onChange={set('experienceYears')} placeholder="0" />
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-lg border border-border text-foreground font-medium text-sm hover:bg-muted transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={loading}
+              className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2">
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              Create Teacher
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function Field({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div>
+      <label className="text-sm font-medium text-foreground mb-1 block">{label}</label>
+      <input {...props}
+        className="w-full px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
     </div>
   );
 }
