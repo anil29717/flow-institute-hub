@@ -52,7 +52,7 @@ serve(async (req) => {
       if (inst?.code) instCode = inst.code.toUpperCase();
     }
 
-    const { email, password, firstName, lastName, phone, qualification, specialization, experienceYears } = await req.json();
+    const { email, password, firstName, lastName, phone, qualification, specialization, experienceYears, salaryAmount, salaryType, paymentFrequency } = await req.json();
 
     if (!email || !password || !firstName || !lastName) {
       throw new Error("Missing required fields: email, password, firstName, lastName");
@@ -105,6 +105,9 @@ serve(async (req) => {
       qualification: qualification || null,
       specialization: specialization || null,
       experience_years: experienceYears || 0,
+      salary_amount: salaryAmount || 0,
+      salary_type: salaryType || 'per_month',
+      payment_frequency: paymentFrequency || 'monthly',
     });
     if (teacherError) throw teacherError;
 

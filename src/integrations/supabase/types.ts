@@ -548,8 +548,11 @@ export type Database = {
           id: string
           institute_id: string | null
           join_date: string
+          payment_frequency: string | null
           profile_id: string
           qualification: string | null
+          salary_amount: number | null
+          salary_type: string | null
           specialization: string[] | null
         }
         Insert: {
@@ -559,8 +562,11 @@ export type Database = {
           id?: string
           institute_id?: string | null
           join_date?: string
+          payment_frequency?: string | null
           profile_id: string
           qualification?: string | null
+          salary_amount?: number | null
+          salary_type?: string | null
           specialization?: string[] | null
         }
         Update: {
@@ -570,8 +576,11 @@ export type Database = {
           id?: string
           institute_id?: string | null
           join_date?: string
+          payment_frequency?: string | null
           profile_id?: string
           qualification?: string | null
+          salary_amount?: number | null
+          salary_type?: string | null
           specialization?: string[] | null
         }
         Relationships: [

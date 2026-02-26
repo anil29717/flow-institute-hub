@@ -1,11 +1,13 @@
-import { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useStudents, useCreateStudent, useBatches, useInstitute } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, Plus, GraduationCap, Loader2 } from 'lucide-react';
+import { Search, Plus, Loader2, X, CalendarIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 const feeColors: Record<string, string> = {
   paid: 'bg-success/10 text-success',
@@ -24,12 +26,12 @@ export default function StudentsPage() {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(defaultForm);
+  const [selectedStudent, setSelectedStudent] = useState<any>(null);
 
   const filtered = (students ?? []).filter(s =>
     `${s.first_name} ${s.last_name} ${s.student_id}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Auto-generate student ID from institute code + student name + random
   const generateStudentId = (firstName: string) => {
     const prefix = (institute?.code || 'INST').toUpperCase().slice(0, 4);
     const namePart = firstName.toUpperCase().slice(0, 3);
@@ -47,19 +49,12 @@ export default function StudentsPage() {
     const studentId = generateStudentId(form.first_name);
     createStudent.mutate(
       {
-        student_id: studentId,
-        first_name: form.first_name,
-        last_name: form.last_name,
-        email: form.email || undefined,
-        phone: form.phone || undefined,
-        guardian_name: form.guardian_name || undefined,
-        guardian_phone: form.guardian_phone || undefined,
-        batch_id: form.batch_id || undefined,
-        class: form.class || undefined,
-        school: form.school || undefined,
+        student_id: studentId, first_name: form.first_name, last_name: form.last_name,
+        email: form.email || undefined, phone: form.phone || undefined,
+        guardian_name: form.guardian_name || undefined, guardian_phone: form.guardian_phone || undefined,
+        batch_id: form.batch_id || undefined, class: form.class || undefined, school: form.school || undefined,
         total_fee: form.total_fee ? parseFloat(form.total_fee) : undefined,
-        enrollment_date: form.enrollment_date || undefined,
-        institute_id: user.instituteId,
+        enrollment_date: form.enrollment_date || undefined, institute_id: user.instituteId,
       },
       { onSuccess: () => { setOpen(false); setForm(defaultForm); } }
     );
@@ -99,13 +94,13 @@ export default function StudentsPage() {
                   <select value={form.batch_id} onChange={e => setForm(p => ({ ...p, batch_id: e.target.value }))}
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <option value="">Select batch</option>
-                    {(batches ?? []).map(b => <option key={b.id} value={b.id}>{b.name} — {(b as any).courses?.name || ''}</option>)}
+                    {(batches ?? []).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
                 <div><Label>Joining Date</Label><Input type="date" value={form.enrollment_date} onChange={e => setForm(p => ({ ...p, enrollment_date: e.target.value }))} /></div>
                 <div className="col-span-2"><Label>Total Fee (₹)</Label><Input type="number" value={form.total_fee} onChange={e => setForm(p => ({ ...p, total_fee: e.target.value }))} placeholder="e.g. 25000" /></div>
               </div>
-              <p className="text-xs text-muted-foreground">Student ID will be auto-generated: <span className="font-mono font-medium text-foreground">{form.first_name ? generateStudentId(form.first_name) : 'INST-XXX-0000'}</span></p>
+              <p className="text-xs text-muted-foreground">Student ID: <span className="font-mono font-medium text-foreground">{form.first_name ? generateStudentId(form.first_name) : 'INST-XXX-0000'}</span></p>
               <button type="submit" disabled={createStudent.isPending}
                 className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
                 {createStudent.isPending ? 'Adding...' : 'Add Student'}
@@ -143,7 +138,8 @@ export default function StudentsPage() {
               <tbody>
                 {filtered.map((student, i) => (
                   <motion.tr key={student.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
-                    className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                    className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => setSelectedStudent(student)}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-xs">
@@ -181,6 +177,103 @@ export default function StudentsPage() {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {selectedStudent && <StudentDetailModal student={selectedStudent} onClose={() => setSelectedStudent(null)} />}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function StudentDetailModal({ student, onClose }: { student: any; onClose: () => void }) {
+  const { data: attendance, isLoading } = useQuery({
+    queryKey: ['student_attendance_history', student.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('student_id', student.id)
+        .order('date', { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const presentCount = attendance?.filter(a => a.status === 'present').length ?? 0;
+  const absentCount = attendance?.filter(a => a.status === 'absent').length ?? 0;
+  const lateCount = attendance?.filter(a => a.status === 'late').length ?? 0;
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-card rounded-xl border border-border p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-display font-bold text-foreground">Student Details</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="flex items-center gap-4 mb-5">
+          <div className="w-14 h-14 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-lg">
+            {student.first_name[0]}{student.last_name[0]}
+          </div>
+          <div>
+            <p className="text-lg font-semibold text-foreground">{student.first_name} {student.last_name}</p>
+            <p className="text-sm text-muted-foreground font-mono">{student.student_id}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <InfoItem label="Email" value={student.email || '—'} />
+          <InfoItem label="Phone" value={student.phone || '—'} />
+          <InfoItem label="Class" value={student.class || '—'} />
+          <InfoItem label="School" value={student.school || '—'} />
+          <InfoItem label="Guardian" value={student.guardian_name || '—'} />
+          <InfoItem label="Guardian Phone" value={student.guardian_phone || '—'} />
+          <InfoItem label="Batch" value={(student as any).batches?.name || '—'} />
+          <InfoItem label="Enrolled" value={student.enrollment_date} />
+          <InfoItem label="Total Fee" value={`₹${Number(student.total_fee || 0).toLocaleString()}`} />
+          <InfoItem label="Fee Paid" value={`₹${Number(student.fee_paid || 0).toLocaleString()}`} />
+        </div>
+
+        {/* Attendance */}
+        <div>
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2"><CalendarIcon className="w-4 h-4" /> Attendance (Last 30 records)</h3>
+          <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="bg-success/10 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-success">{presentCount}</p><p className="text-xs text-muted-foreground">Present</p></div>
+            <div className="bg-destructive/10 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-destructive">{absentCount}</p><p className="text-xs text-muted-foreground">Absent</p></div>
+            <div className="bg-warning/10 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-warning">{lateCount}</p><p className="text-xs text-muted-foreground">Late</p></div>
+          </div>
+          {isLoading ? (
+            <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+          ) : (attendance?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-3">No attendance records yet.</p>
+          ) : (
+            <div className="max-h-48 overflow-y-auto space-y-1">
+              {attendance?.map(a => (
+                <div key={a.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/30 text-sm">
+                  <span className="text-foreground">{a.date}</span>
+                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                    a.status === 'present' ? 'bg-success/10 text-success' :
+                    a.status === 'absent' ? 'bg-destructive/10 text-destructive' :
+                    'bg-warning/10 text-warning'
+                  }`}>{a.status}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function InfoItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <p className="text-sm font-medium text-foreground truncate">{value}</p>
     </div>
   );
 }
