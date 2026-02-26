@@ -85,6 +85,7 @@ function useAttendanceStats() {
 export default function AttendancePage() {
   const { user } = useAuth();
   const isOwner = user?.role === 'owner';
+  const isTeacher = user?.role === 'teacher';
   const { data: batches, isLoading: batchesLoading } = useBatches();
   const { data: allStudents, isLoading: studentsLoading } = useStudents();
   const { data: teachers, isLoading: teachersLoading } = useTeachers();
@@ -178,13 +179,15 @@ export default function AttendancePage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-display font-bold text-foreground">Attendance</h1>
 
-      {/* Overall stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <StatCard icon={Users} label="Total Records" value={stats?.total ?? 0} color="bg-primary/10 text-primary" />
-        <StatCard icon={CheckCircle} label="Present" value={stats?.present ?? 0} color="bg-success/10 text-success" />
-        <StatCard icon={XCircle} label="Absent" value={stats?.absent ?? 0} color="bg-destructive/10 text-destructive" />
-        <StatCard icon={UserCheck} label="Teachers" value={teachers?.length ?? 0} color="bg-accent/10 text-accent" />
-      </div>
+      {/* Overall stats — Owner only */}
+      {isOwner && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <StatCard icon={Users} label="Total Records" value={stats?.total ?? 0} color="bg-primary/10 text-primary" />
+          <StatCard icon={CheckCircle} label="Present" value={stats?.present ?? 0} color="bg-success/10 text-success" />
+          <StatCard icon={XCircle} label="Absent" value={stats?.absent ?? 0} color="bg-destructive/10 text-destructive" />
+          <StatCard icon={UserCheck} label="Teachers" value={teachers?.length ?? 0} color="bg-accent/10 text-accent" />
+        </div>
+      )}
 
       {/* Teacher Attendance — Owner only */}
       {isOwner && (
