@@ -13,6 +13,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import TeachersPage from "./pages/TeachersPage";
 import StudentsPage from "./pages/StudentsPage";
 import BatchesPage from "./pages/BatchesPage";
+import AttendancePage from "./pages/AttendancePage";
 
 import FeesPage from "./pages/FeesPage";
 import LeavesPage from "./pages/LeavesPage";
@@ -69,7 +70,7 @@ function AppRoutes() {
               <Route path="/teachers" element={<TeachersPage />} />
               <Route path="/students" element={<StudentsPage />} />
               <Route path="/batches" element={<BatchesPage />} />
-              <Route path="/attendance" element={<PlaceholderPage title="Attendance" />} />
+              <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/fees" element={<FeesPage />} />
               <Route path="/leaves" element={<LeavesPage />} />
               <Route path="/reports" element={<PlaceholderPage title="Reports & Analytics" />} />

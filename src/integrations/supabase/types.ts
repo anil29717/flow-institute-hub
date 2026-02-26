@@ -22,6 +22,7 @@ export type Database = {
           id: string
           marked_by: string | null
           status: string
+          student_id: string | null
           student_name: string
         }
         Insert: {
@@ -31,6 +32,7 @@ export type Database = {
           id?: string
           marked_by?: string | null
           status?: string
+          student_id?: string | null
           student_name: string
         }
         Update: {
@@ -40,6 +42,7 @@ export type Database = {
           id?: string
           marked_by?: string | null
           status?: string
+          student_id?: string | null
           student_name?: string
         }
         Relationships: [
@@ -55,6 +58,13 @@ export type Database = {
             columns: ["marked_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
