@@ -1,15 +1,20 @@
 import { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Users, GraduationCap, IndianRupee, TrendingUp, Layers, Loader2, CalendarIcon } from 'lucide-react';
-import { useDashboardStats, useStudents } from '@/hooks/useSupabaseData';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Users, GraduationCap, IndianRupee, TrendingUp, Layers, Loader2, CalendarIcon, CreditCard, History } from 'lucide-react';
+import { useDashboardStats, useStudents, useInstitute } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { X } from 'lucide-react';
 
 export default function OwnerDashboard() {
   const { user } = useAuth();
   const { data: stats, isLoading } = useDashboardStats();
   const { data: students } = useStudents();
+  const { data: planLimits } = usePlanLimits();
+  const { data: institute } = useInstitute(user?.instituteId ?? null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const feeStats = useMemo(() => {
     const all = students ?? [];
@@ -37,6 +42,54 @@ export default function OwnerDashboard() {
         <h1 className="text-2xl font-display font-bold text-foreground">Good morning, {user?.firstName}!</h1>
         <p className="text-muted-foreground">Here's what's happening at your institute.</p>
       </div>
+
+      {/* Plan Info Card */}
+      {planLimits?.hasPlan && (
+        <div className={`rounded-xl border p-5 ${planLimits.isExpired ? 'bg-destructive/5 border-destructive/30' : 'bg-card border-border'}`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-primary" />
+              <h3 className="font-display font-semibold text-foreground">
+                {planLimits.planName} Plan
+                {planLimits.isExpired && <span className="text-destructive text-sm ml-2">(Expired)</span>}
+              </h3>
+            </div>
+            <button onClick={() => setShowHistory(true)}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors">
+              <History className="w-3.5 h-3.5" /> History
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-muted/50 rounded-lg p-3">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                <span>Students</span>
+                <span className="font-medium text-foreground">{planLimits.currentStudents}/{planLimits.maxStudents}</span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${planLimits.currentStudents >= (planLimits.maxStudents ?? 0) ? 'bg-destructive' : 'bg-primary'}`}
+                  style={{ width: `${Math.min(100, (planLimits.currentStudents / (planLimits.maxStudents ?? 1)) * 100)}%` }} />
+              </div>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                <span>Teachers</span>
+                <span className="font-medium text-foreground">{planLimits.currentTeachers}/{planLimits.maxTeachers}</span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${planLimits.currentTeachers >= (planLimits.maxTeachers ?? 0) ? 'bg-destructive' : 'bg-primary'}`}
+                  style={{ width: `${Math.min(100, (planLimits.currentTeachers / (planLimits.maxTeachers ?? 1)) * 100)}%` }} />
+              </div>
+            </div>
+          </div>
+
+          {(institute as any)?.plan_expires_at && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Expires: {new Date((institute as any).plan_expires_at).toLocaleDateString()}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((card, i) => {
@@ -100,6 +153,72 @@ export default function OwnerDashboard() {
           <p className="text-sm text-muted-foreground">All fees are collected — great job!</p>
         )}
       </div>
+
+      <AnimatePresence>
+        {showHistory && user?.instituteId && (
+          <PlanHistoryModal instituteId={user.instituteId} onClose={() => setShowHistory(false)} />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function PlanHistoryModal({ instituteId, onClose }: { instituteId: string; onClose: () => void }) {
+  const { data: history, isLoading } = useQuery({
+    queryKey: ['plan_history', instituteId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('plan_history')
+        .select('*')
+        .eq('institute_id', instituteId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-card rounded-xl border border-border p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-display font-bold text-foreground flex items-center gap-2"><History className="w-5 h-5" /> Plan History</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+        ) : !history?.length ? (
+          <p className="text-sm text-muted-foreground text-center py-8">No plan changes recorded yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {history.map(h => (
+              <div key={h.id} className="bg-muted/50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-foreground">{h.plan_name}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(h.created_at).toLocaleDateString()}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Paid</span>
+                    <p className="font-medium text-foreground">₹{Number(h.amount_paid).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Mode</span>
+                    <p className="font-medium text-foreground capitalize">{h.payment_mode?.replace('_', ' ')}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Expires</span>
+                    <p className="font-medium text-foreground">{h.expires_at ? new Date(h.expires_at).toLocaleDateString() : '—'}</p>
+                  </div>
+                </div>
+                {h.notes && <p className="text-xs text-muted-foreground mt-2 italic">{h.notes}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
   );
 }
