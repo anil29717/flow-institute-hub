@@ -366,11 +366,13 @@ export type Database = {
       students: {
         Row: {
           batch_id: string | null
+          class: string | null
           course_id: string | null
           created_at: string | null
           date_of_birth: string | null
           email: string | null
           enrollment_date: string
+          fee_paid: number | null
           fee_status: string
           first_name: string
           guardian_name: string | null
@@ -380,16 +382,20 @@ export type Database = {
           is_active: boolean
           last_name: string
           phone: string | null
+          school: string | null
           student_id: string
+          total_fee: number | null
           updated_at: string | null
         }
         Insert: {
           batch_id?: string | null
+          class?: string | null
           course_id?: string | null
           created_at?: string | null
           date_of_birth?: string | null
           email?: string | null
           enrollment_date?: string
+          fee_paid?: number | null
           fee_status?: string
           first_name: string
           guardian_name?: string | null
@@ -399,16 +405,20 @@ export type Database = {
           is_active?: boolean
           last_name: string
           phone?: string | null
+          school?: string | null
           student_id: string
+          total_fee?: number | null
           updated_at?: string | null
         }
         Update: {
           batch_id?: string | null
+          class?: string | null
           course_id?: string | null
           created_at?: string | null
           date_of_birth?: string | null
           email?: string | null
           enrollment_date?: string
+          fee_paid?: number | null
           fee_status?: string
           first_name?: string
           guardian_name?: string | null
@@ -418,7 +428,9 @@ export type Database = {
           is_active?: boolean
           last_name?: string
           phone?: string | null
+          school?: string | null
           student_id?: string
+          total_fee?: number | null
           updated_at?: string | null
         }
         Relationships: [

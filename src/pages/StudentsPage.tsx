@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { useStudents, useCreateStudent } from '@/hooks/useSupabaseData';
+import { useStudents, useCreateStudent, useBatches, useInstitute } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, Plus, GraduationCap, Loader2, X } from 'lucide-react';
+import { Search, Plus, GraduationCap, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,24 +13,51 @@ const feeColors: Record<string, string> = {
   pending: 'bg-destructive/10 text-destructive',
 };
 
+const defaultForm = { first_name: '', last_name: '', email: '', phone: '', guardian_name: '', guardian_phone: '', batch_id: '', class: '', school: '', total_fee: '', enrollment_date: '' };
+
 export default function StudentsPage() {
   const { user } = useAuth();
   const { data: students, isLoading } = useStudents();
+  const { data: batches } = useBatches();
+  const { data: institute } = useInstitute(user?.instituteId ?? null);
   const createStudent = useCreateStudent();
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ student_id: '', first_name: '', last_name: '', email: '', phone: '', guardian_name: '', guardian_phone: '' });
+  const [form, setForm] = useState(defaultForm);
 
   const filtered = (students ?? []).filter(s =>
-    `${s.first_name} ${s.last_name}`.toLowerCase().includes(search.toLowerCase())
+    `${s.first_name} ${s.last_name} ${s.student_id}`.toLowerCase().includes(search.toLowerCase())
   );
+
+  // Auto-generate student ID from institute code + student name + random
+  const generateStudentId = (firstName: string) => {
+    const prefix = (institute?.code || 'INST').toUpperCase().slice(0, 4);
+    const namePart = firstName.toUpperCase().slice(0, 3);
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    return `${prefix}-${namePart}-${rand}`;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.instituteId) return;
+    const studentId = generateStudentId(form.first_name);
     createStudent.mutate(
-      { ...form, institute_id: user.instituteId },
-      { onSuccess: () => { setOpen(false); setForm({ student_id: '', first_name: '', last_name: '', email: '', phone: '', guardian_name: '', guardian_phone: '' }); } }
+      {
+        student_id: studentId,
+        first_name: form.first_name,
+        last_name: form.last_name,
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        guardian_name: form.guardian_name || undefined,
+        guardian_phone: form.guardian_phone || undefined,
+        batch_id: form.batch_id || undefined,
+        class: form.class || undefined,
+        school: form.school || undefined,
+        total_fee: form.total_fee ? parseFloat(form.total_fee) : undefined,
+        enrollment_date: form.enrollment_date || undefined,
+        institute_id: user.instituteId,
+      },
+      { onSuccess: () => { setOpen(false); setForm(defaultForm); } }
     );
   };
 
@@ -51,18 +78,30 @@ export default function StudentsPage() {
               <Plus className="w-4 h-4" /> Add Student
             </button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Add New Student</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>Student ID *</Label><Input required value={form.student_id} onChange={e => setForm(p => ({ ...p, student_id: e.target.value }))} placeholder="STU-007" /></div>
                 <div><Label>First Name *</Label><Input required value={form.first_name} onChange={e => setForm(p => ({ ...p, first_name: e.target.value }))} /></div>
                 <div><Label>Last Name *</Label><Input required value={form.last_name} onChange={e => setForm(p => ({ ...p, last_name: e.target.value }))} /></div>
                 <div><Label>Email</Label><Input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} /></div>
                 <div><Label>Phone</Label><Input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} /></div>
+                <div><Label>Class</Label><Input value={form.class} onChange={e => setForm(p => ({ ...p, class: e.target.value }))} placeholder="e.g. 10th, 12th" /></div>
+                <div><Label>School</Label><Input value={form.school} onChange={e => setForm(p => ({ ...p, school: e.target.value }))} /></div>
                 <div><Label>Guardian Name</Label><Input value={form.guardian_name} onChange={e => setForm(p => ({ ...p, guardian_name: e.target.value }))} /></div>
                 <div><Label>Guardian Phone</Label><Input value={form.guardian_phone} onChange={e => setForm(p => ({ ...p, guardian_phone: e.target.value }))} /></div>
+                <div>
+                  <Label>Batch</Label>
+                  <select value={form.batch_id} onChange={e => setForm(p => ({ ...p, batch_id: e.target.value }))}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <option value="">Select batch</option>
+                    {(batches ?? []).map(b => <option key={b.id} value={b.id}>{b.name} — {(b as any).courses?.name || ''}</option>)}
+                  </select>
+                </div>
+                <div><Label>Joining Date</Label><Input type="date" value={form.enrollment_date} onChange={e => setForm(p => ({ ...p, enrollment_date: e.target.value }))} /></div>
+                <div className="col-span-2"><Label>Total Fee (₹)</Label><Input type="number" value={form.total_fee} onChange={e => setForm(p => ({ ...p, total_fee: e.target.value }))} placeholder="e.g. 25000" /></div>
               </div>
+              <p className="text-xs text-muted-foreground">Student ID will be auto-generated: <span className="font-mono font-medium text-foreground">{form.first_name ? generateStudentId(form.first_name) : 'INST-XXX-0000'}</span></p>
               <button type="submit" disabled={createStudent.isPending}
                 className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
                 {createStudent.isPending ? 'Adding...' : 'Add Student'}
@@ -90,10 +129,10 @@ export default function StudentsPage() {
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Student</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Course</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Batch</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Batch</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Class / School</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Fee Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Enrolled</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Joined</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
                 </tr>
               </thead>
@@ -108,16 +147,16 @@ export default function StudentsPage() {
                         </div>
                         <div>
                           <p className="font-medium text-foreground">{student.first_name} {student.last_name}</p>
-                          <p className="text-xs text-muted-foreground">{student.student_id}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{student.student_id}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="flex items-center gap-1.5 text-muted-foreground">
-                        <GraduationCap className="w-3.5 h-3.5" /> {(student as any).courses?.name || '—'}
-                      </span>
+                      <span className="text-muted-foreground">{(student as any).batches?.name || '—'}</span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{(student as any).batches?.name || '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
+                      {(student as any).class || '—'} {(student as any).school ? `/ ${(student as any).school}` : ''}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${feeColors[student.fee_status] || feeColors.pending}`}>
                         {student.fee_status}
