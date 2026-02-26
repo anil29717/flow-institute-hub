@@ -217,6 +217,51 @@ export type Database = {
         }
         Relationships: []
       }
+      institutes: {
+        Row: {
+          address: string | null
+          code: string
+          created_at: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          is_approved: boolean | null
+          logo_url: string | null
+          name: string
+          owner_user_id: string | null
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          code: string
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_approved?: boolean | null
+          logo_url?: string | null
+          name: string
+          owner_user_id?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          code?: string
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_approved?: boolean | null
+          logo_url?: string | null
+          name?: string
+          owner_user_id?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       leave_requests: {
         Row: {
           approved_by: string | null
@@ -274,6 +319,7 @@ export type Database = {
           email: string
           first_name: string
           id: string
+          institute_id: string | null
           is_active: boolean | null
           last_name: string
           phone: string | null
@@ -286,6 +332,7 @@ export type Database = {
           email: string
           first_name: string
           id?: string
+          institute_id?: string | null
           is_active?: boolean | null
           last_name: string
           phone?: string | null
@@ -298,6 +345,7 @@ export type Database = {
           email?: string
           first_name?: string
           id?: string
+          institute_id?: string | null
           is_active?: boolean | null
           last_name?: string
           phone?: string | null
@@ -305,7 +353,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_institute_id_fkey"
+            columns: ["institute_id"]
+            isOneToOne: false
+            referencedRelation: "institutes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teachers: {
         Row: {
@@ -313,6 +369,7 @@ export type Database = {
           employee_id: string
           experience_years: number | null
           id: string
+          institute_id: string | null
           join_date: string
           profile_id: string
           qualification: string | null
@@ -323,6 +380,7 @@ export type Database = {
           employee_id: string
           experience_years?: number | null
           id?: string
+          institute_id?: string | null
           join_date?: string
           profile_id: string
           qualification?: string | null
@@ -333,12 +391,20 @@ export type Database = {
           employee_id?: string
           experience_years?: number | null
           id?: string
+          institute_id?: string | null
           join_date?: string
           profile_id?: string
           qualification?: string | null
           specialization?: string[] | null
         }
         Relationships: [
+          {
+            foreignKeyName: "teachers_institute_id_fkey"
+            columns: ["institute_id"]
+            isOneToOne: false
+            referencedRelation: "institutes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "teachers_profile_id_fkey"
             columns: ["profile_id"]
@@ -375,6 +441,7 @@ export type Database = {
     }
     Functions: {
       get_teacher_id: { Args: { _user_id: string }; Returns: string }
+      get_user_institute_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -384,7 +451,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "owner" | "teacher"
+      app_role: "owner" | "teacher" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -512,7 +579,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["owner", "teacher"],
+      app_role: ["owner", "teacher", "admin"],
     },
   },
 } as const
