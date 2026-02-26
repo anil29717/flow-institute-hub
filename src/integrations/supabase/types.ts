@@ -363,6 +363,88 @@ export type Database = {
           },
         ]
       }
+      students: {
+        Row: {
+          batch_id: string | null
+          course_id: string | null
+          created_at: string | null
+          date_of_birth: string | null
+          email: string | null
+          enrollment_date: string
+          fee_status: string
+          first_name: string
+          guardian_name: string | null
+          guardian_phone: string | null
+          id: string
+          institute_id: string | null
+          is_active: boolean
+          last_name: string
+          phone: string | null
+          student_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          batch_id?: string | null
+          course_id?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          email?: string | null
+          enrollment_date?: string
+          fee_status?: string
+          first_name: string
+          guardian_name?: string | null
+          guardian_phone?: string | null
+          id?: string
+          institute_id?: string | null
+          is_active?: boolean
+          last_name: string
+          phone?: string | null
+          student_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          batch_id?: string | null
+          course_id?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          email?: string | null
+          enrollment_date?: string
+          fee_status?: string
+          first_name?: string
+          guardian_name?: string | null
+          guardian_phone?: string | null
+          id?: string
+          institute_id?: string | null
+          is_active?: boolean
+          last_name?: string
+          phone?: string | null
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_institute_id_fkey"
+            columns: ["institute_id"]
+            isOneToOne: false
+            referencedRelation: "institutes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teachers: {
         Row: {
           created_at: string | null
