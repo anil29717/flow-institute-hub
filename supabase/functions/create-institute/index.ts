@@ -79,28 +79,6 @@ serve(async (req) => {
     // 5. Set owner_user_id on institute
     await supabaseAdmin.from("institutes").update({ owner_user_id: userId }).eq("id", institute.id);
 
-    // 6. Create a default course for the institute
-    const { data: defaultCourse } = await supabaseAdmin
-      .from("courses")
-      .insert({ name: `${instituteName} - Default Course`, description: 'Default course created with institute', duration_weeks: 12, total_fee: 0 })
-      .select()
-      .single();
-
-    // 7. Create a default batch under the course
-    if (defaultCourse) {
-      const today = new Date();
-      const endDate = new Date(today);
-      endDate.setMonth(endDate.getMonth() + 3);
-      await supabaseAdmin.from("batches").insert({
-        name: `${code}-Batch-1`,
-        course_id: defaultCourse.id,
-        start_date: today.toISOString().split('T')[0],
-        end_date: endDate.toISOString().split('T')[0],
-        max_students: 30,
-        status: 'ongoing',
-      });
-    }
-
     return new Response(JSON.stringify({ success: true, instituteId: institute.id, userId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
