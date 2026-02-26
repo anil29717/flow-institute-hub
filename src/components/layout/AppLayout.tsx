@@ -11,7 +11,6 @@ import {
 const ownerNav = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { label: 'Teachers', path: '/teachers', icon: Users },
-  { label: 'Students', path: '/students', icon: GraduationCap },
   { label: 'Courses', path: '/courses', icon: BookOpen },
   { label: 'Batches', path: '/batches', icon: Layers },
   { label: 'Attendance', path: '/attendance', icon: ClipboardList },
@@ -29,23 +28,14 @@ const teacherNav = [
   { label: 'Feedback', path: '/feedback', icon: MessageSquare },
 ];
 
-const studentNav = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'My Courses', path: '/courses', icon: BookOpen },
-  { label: 'Attendance', path: '/attendance', icon: ClipboardList },
-  { label: 'Fees', path: '/fees', icon: CreditCard },
-  { label: 'Feedback', path: '/feedback', icon: MessageSquare },
-];
-
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navItems = user?.role === 'owner' ? ownerNav : user?.role === 'teacher' ? teacherNav : studentNav;
-
-  const roleBadge = user?.role === 'owner' ? 'Owner' : user?.role === 'teacher' ? 'Teacher' : 'Student';
+  const navItems = user?.role === 'teacher' ? teacherNav : ownerNav;
+  const roleBadge = user?.role === 'owner' ? 'Owner' : 'Teacher';
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -53,9 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-foreground/40 z-40 lg:hidden"
             onClick={() => setMobileOpen(false)}
           />
@@ -68,7 +56,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           sidebarOpen ? 'w-64' : 'w-20'
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
-        {/* Logo */}
         <div className="flex items-center gap-3 px-5 h-16 border-b border-sidebar-border">
           <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
             <GraduationCap className="w-5 h-5 text-accent-foreground" />
@@ -80,22 +67,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        {/* Nav items */}
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setMobileOpen(false)}
+              <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
                   isActive
                     ? 'bg-accent text-accent-foreground shadow-md'
                     : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                }`}
-              >
+                }`}>
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 {sidebarOpen && <span>{item.label}</span>}
                 {isActive && sidebarOpen && <ChevronRight className="w-4 h-4 ml-auto" />}
@@ -104,7 +86,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* User section */}
         <div className="p-3 border-t border-sidebar-border">
           <div className={`flex items-center gap-3 px-3 py-2 ${!sidebarOpen && 'justify-center'}`}>
             <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0 text-accent text-sm font-bold">
@@ -117,19 +98,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             )}
           </div>
-          <button
-            onClick={logout}
-            className="mt-2 flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm text-sidebar-foreground hover:bg-destructive/20 hover:text-destructive transition-colors"
-          >
+          <button onClick={logout}
+            className="mt-2 flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm text-sidebar-foreground hover:bg-destructive/20 hover:text-destructive transition-colors">
             <LogOut className="w-5 h-5 flex-shrink-0" />
             {sidebarOpen && <span>Logout</span>}
           </button>
         </div>
       </motion.aside>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
         <header className="h-16 bg-card border-b border-border flex items-center px-4 lg:px-6 gap-4">
           <button onClick={() => setMobileOpen(true)} className="lg:hidden text-muted-foreground hover:text-foreground">
             <Menu className="w-6 h-6" />
@@ -140,14 +117,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex-1" />
           <button className="relative text-muted-foreground hover:text-foreground">
             <Bell className="w-5 h-5" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full text-[10px] text-destructive-foreground flex items-center justify-center font-bold">3</span>
           </button>
         </header>
-
-        {/* Page content */}
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
-          {children}
-        </main>
+        <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>
       </div>
     </div>
   );

@@ -1,8 +1,14 @@
 import { motion } from 'framer-motion';
-import { mockCourses } from '@/data/mockData';
-import { Plus, Users, Clock, IndianRupee } from 'lucide-react';
+import { useCourses } from '@/hooks/useSupabaseData';
+import { Plus, Users, Clock, IndianRupee, Loader2 } from 'lucide-react';
 
 export default function CoursesPage() {
+  const { data: courses, isLoading } = useCourses();
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -15,50 +21,39 @@ export default function CoursesPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {mockCourses.map((course, i) => (
-          <motion.div
-            key={course.id}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: i * 0.08 }}
-            className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-start justify-between mb-3">
-              <h3 className="font-display font-semibold text-foreground">{course.name}</h3>
-              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                course.isActive ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
-              }`}>
-                {course.isActive ? 'Active' : 'Inactive'}
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">{course.description}</p>
-            <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-                  <Users className="w-3.5 h-3.5" />
-                </div>
-                <p className="text-sm font-semibold text-foreground">{course.studentsEnrolled}</p>
-                <p className="text-xs text-muted-foreground">Students</p>
+      {(courses ?? []).length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <p className="text-lg font-medium">No courses yet</p>
+          <p className="text-sm mt-1">Create your first course to get started</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {(courses ?? []).map((course, i) => (
+            <motion.div key={course.id} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.08 }}
+              className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <h3 className="font-display font-semibold text-foreground">{course.name}</h3>
+                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${course.is_active ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
+                  {course.is_active ? 'Active' : 'Inactive'}
+                </span>
               </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-                  <Clock className="w-3.5 h-3.5" />
+              <p className="text-sm text-muted-foreground mb-4">{course.description || 'No description'}</p>
+              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1"><Clock className="w-3.5 h-3.5" /></div>
+                  <p className="text-sm font-semibold text-foreground">{course.duration_weeks}w</p>
+                  <p className="text-xs text-muted-foreground">Duration</p>
                 </div>
-                <p className="text-sm font-semibold text-foreground">{course.durationWeeks}w</p>
-                <p className="text-xs text-muted-foreground">Duration</p>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-                  <IndianRupee className="w-3.5 h-3.5" />
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1"><IndianRupee className="w-3.5 h-3.5" /></div>
+                  <p className="text-sm font-semibold text-foreground">₹{(Number(course.total_fee) / 1000).toFixed(0)}k</p>
+                  <p className="text-xs text-muted-foreground">Fee</p>
                 </div>
-                <p className="text-sm font-semibold text-foreground">₹{(course.totalFee / 1000).toFixed(0)}k</p>
-                <p className="text-xs text-muted-foreground">Fee</p>
               </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
