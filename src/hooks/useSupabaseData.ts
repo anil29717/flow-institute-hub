@@ -53,6 +53,19 @@ export function useBatches() {
   });
 }
 
+export function useCreateBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (batch: { name: string; course_id: string; start_date: string; end_date: string; max_students?: number; teacher_id?: string }) => {
+      const { data, error } = await supabase.from('batches').insert(batch).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['batches'] }); toast.success('Batch created'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 // ─── Fees ───
 export function useFees() {
   return useQuery({
@@ -104,13 +117,27 @@ export function useStudents() {
 export function useCreateStudent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (student: { student_id: string; first_name: string; last_name: string; email?: string; phone?: string; guardian_name?: string; guardian_phone?: string; institute_id: string; course_id?: string; batch_id?: string }) => {
+    mutationFn: async (student: { student_id: string; first_name: string; last_name: string; email?: string; phone?: string; guardian_name?: string; guardian_phone?: string; institute_id: string; batch_id?: string; class?: string; school?: string; total_fee?: number; enrollment_date?: string }) => {
       const { data, error } = await supabase.from('students').insert(student).select().single();
       if (error) throw error;
       return data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['students'] }); toast.success('Student added'); },
     onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ─── Institute info ───
+export function useInstitute(instituteId: string | null) {
+  return useQuery({
+    queryKey: ['institute', instituteId],
+    queryFn: async () => {
+      if (!instituteId) return null;
+      const { data, error } = await supabase.from('institutes').select('*').eq('id', instituteId).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!instituteId,
   });
 }
 

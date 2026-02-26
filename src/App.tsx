@@ -12,6 +12,7 @@ import OwnerDashboard from "./pages/OwnerDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import TeachersPage from "./pages/TeachersPage";
 import StudentsPage from "./pages/StudentsPage";
+import BatchesPage from "./pages/BatchesPage";
 
 import FeesPage from "./pages/FeesPage";
 import LeavesPage from "./pages/LeavesPage";
@@ -67,7 +68,7 @@ function AppRoutes() {
               <Route path="/dashboard" element={<OwnerDashboard />} />
               <Route path="/teachers" element={<TeachersPage />} />
               <Route path="/students" element={<StudentsPage />} />
-              <Route path="/batches" element={<PlaceholderPage title="Batches" />} />
+              <Route path="/batches" element={<BatchesPage />} />
               <Route path="/attendance" element={<PlaceholderPage title="Attendance" />} />
               <Route path="/fees" element={<FeesPage />} />
               <Route path="/leaves" element={<LeavesPage />} />
