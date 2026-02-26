@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AppLayout from "./components/layout/AppLayout";
@@ -72,7 +73,11 @@ function AppRoutes() {
 
       {/* Institute/Teacher routes */}
       {!isAuthenticated ? (
-        <Route path="*" element={<LoginPage />} />
+        <>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </>
       ) : (
         <Route path="*" element={
           <AppLayout>
