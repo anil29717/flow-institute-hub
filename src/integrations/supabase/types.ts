@@ -61,7 +61,7 @@ export type Database = {
       }
       batches: {
         Row: {
-          course_id: string
+          course_id: string | null
           created_at: string | null
           current_students: number | null
           end_date: string
@@ -73,7 +73,7 @@ export type Database = {
           teacher_id: string | null
         }
         Insert: {
-          course_id: string
+          course_id?: string | null
           created_at?: string | null
           current_students?: number | null
           end_date: string
@@ -85,7 +85,7 @@ export type Database = {
           teacher_id?: string | null
         }
         Update: {
-          course_id?: string
+          course_id?: string | null
           created_at?: string | null
           current_students?: number | null
           end_date?: string

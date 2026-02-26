@@ -16,7 +16,7 @@ export default function OwnerDashboard() {
 
   const statCards = [
     { label: 'Total Teachers', value: stats?.totalTeachers ?? 0, icon: Users, gradient: 'stat-gradient-1' },
-    { label: 'Active Courses', value: stats?.totalCourses ?? 0, icon: BookOpen, gradient: 'stat-gradient-2' },
+    { label: 'Total Students', value: stats?.totalStudents ?? 0, icon: GraduationCap, gradient: 'stat-gradient-2' },
     { label: 'Active Batches', value: stats?.activeBatches ?? 0, icon: Layers, gradient: 'stat-gradient-3' },
     { label: 'Revenue', value: `₹${((stats?.totalRevenue ?? 0) / 1000).toFixed(0)}k`, icon: IndianRupee, gradient: 'stat-gradient-4' },
   ];

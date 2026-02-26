@@ -46,7 +46,7 @@ export function useBatches() {
   return useQuery({
     queryKey: ['batches'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('batches').select('*, courses(name), teachers(*, profiles(*))');
+      const { data, error } = await supabase.from('batches').select('*, teachers(*, profiles(*))');
       if (error) throw error;
       return data;
     },
@@ -56,7 +56,7 @@ export function useBatches() {
 export function useCreateBatch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (batch: { name: string; course_id: string; start_date: string; end_date: string; max_students?: number; teacher_id?: string }) => {
+    mutationFn: async (batch: { name: string; start_date: string; end_date: string; max_students?: number; teacher_id?: string }) => {
       const { data, error } = await supabase.from('batches').insert(batch).select().single();
       if (error) throw error;
       return data;
@@ -170,9 +170,9 @@ export function useDashboardStats() {
   return useQuery({
     queryKey: ['dashboard_stats'],
     queryFn: async () => {
-      const [teachers, courses, batches, fees, leaves] = await Promise.all([
+      const [teachers, students, batches, fees, leaves] = await Promise.all([
         supabase.from('teachers').select('id', { count: 'exact', head: true }),
-        supabase.from('courses').select('id', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('students').select('id', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('batches').select('id', { count: 'exact', head: true }).eq('status', 'ongoing'),
         supabase.from('fees').select('amount, status'),
         supabase.from('leave_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
@@ -184,7 +184,8 @@ export function useDashboardStats() {
 
       return {
         totalTeachers: teachers.count ?? 0,
-        totalCourses: courses.count ?? 0,
+        totalStudents: students.count ?? 0,
+        
         activeBatches: batches.count ?? 0,
         totalRevenue,
         pendingFees,
