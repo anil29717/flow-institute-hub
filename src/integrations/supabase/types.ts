@@ -281,6 +281,9 @@ export type Database = {
           name: string
           owner_user_id: string | null
           phone: string | null
+          plan_expires_at: string | null
+          plan_id: string | null
+          plan_started_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -295,6 +298,9 @@ export type Database = {
           name: string
           owner_user_id?: string | null
           phone?: string | null
+          plan_expires_at?: string | null
+          plan_id?: string | null
+          plan_started_at?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -309,9 +315,20 @@ export type Database = {
           name?: string
           owner_user_id?: string | null
           phone?: string | null
+          plan_expires_at?: string | null
+          plan_id?: string | null
+          plan_started_at?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "institutes_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       leave_requests: {
         Row: {
@@ -363,6 +380,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plans: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          max_days: number
+          max_students: number
+          max_teachers: number
+          name: string
+          price: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_days?: number
+          max_students?: number
+          max_teachers?: number
+          name: string
+          price?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_days?: number
+          max_students?: number
+          max_teachers?: number
+          name?: string
+          price?: number
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
