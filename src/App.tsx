@@ -17,7 +17,7 @@ import AttendancePage from "./pages/AttendancePage";
 
 import FeesPage from "./pages/FeesPage";
 import LeavesPage from "./pages/LeavesPage";
-import PlaceholderPage from "./pages/PlaceholderPage";
+import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -73,10 +73,9 @@ function AppRoutes() {
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/fees" element={<FeesPage />} />
               <Route path="/leaves" element={<LeavesPage />} />
-              <Route path="/reports" element={<PlaceholderPage title="Reports & Analytics" />} />
-              <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
-              <Route path="/classes" element={<PlaceholderPage title="My Classes" />} />
-              <Route path="/feedback" element={<PlaceholderPage title="Feedback" />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/classes" element={<NotFound />} />
+              <Route path="/feedback" element={<NotFound />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppLayout>
