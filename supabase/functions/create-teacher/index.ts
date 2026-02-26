@@ -16,7 +16,6 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify caller is an owner
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Not authenticated");
 
@@ -36,11 +35,32 @@ serve(async (req) => {
 
     if (!roleData) throw new Error("Only owners can create teacher accounts");
 
-    const { email, password, firstName, lastName, phone, employeeId, qualification, specialization, experienceYears } = await req.json();
+    // Get caller's institute for auto-generating employee_id
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("institute_id")
+      .eq("user_id", caller.id)
+      .single();
 
-    if (!email || !password || !firstName || !lastName || !employeeId) {
-      throw new Error("Missing required fields: email, password, firstName, lastName, employeeId");
+    let instCode = "INST";
+    if (callerProfile?.institute_id) {
+      const { data: inst } = await supabaseAdmin
+        .from("institutes")
+        .select("code")
+        .eq("id", callerProfile.institute_id)
+        .single();
+      if (inst?.code) instCode = inst.code.toUpperCase();
     }
+
+    const { email, password, firstName, lastName, phone, qualification, specialization, experienceYears } = await req.json();
+
+    if (!email || !password || !firstName || !lastName) {
+      throw new Error("Missing required fields: email, password, firstName, lastName");
+    }
+
+    // Auto-generate employee ID: INST_CODE-TEA-RANDOM
+    const random = Math.floor(1000 + Math.random() * 9000);
+    const employeeId = `${instCode}-TEA-${random}`;
 
     // 1. Create auth user
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -60,9 +80,12 @@ serve(async (req) => {
     });
     if (roleError) throw roleError;
 
-    // 3. Update profile with phone
-    if (phone) {
-      await supabaseAdmin.from("profiles").update({ phone }).eq("user_id", userId);
+    // 3. Update profile with phone and institute_id
+    const updateData: Record<string, unknown> = {};
+    if (phone) updateData.phone = phone;
+    if (callerProfile?.institute_id) updateData.institute_id = callerProfile.institute_id;
+    if (Object.keys(updateData).length > 0) {
+      await supabaseAdmin.from("profiles").update(updateData).eq("user_id", userId);
     }
 
     // 4. Get profile id
@@ -78,13 +101,14 @@ serve(async (req) => {
     const { error: teacherError } = await supabaseAdmin.from("teachers").insert({
       profile_id: profile.id,
       employee_id: employeeId,
+      institute_id: callerProfile?.institute_id || null,
       qualification: qualification || null,
       specialization: specialization || null,
       experience_years: experienceYears || 0,
     });
     if (teacherError) throw teacherError;
 
-    return new Response(JSON.stringify({ success: true, userId }), {
+    return new Response(JSON.stringify({ success: true, userId, employeeId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
