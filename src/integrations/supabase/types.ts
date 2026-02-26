@@ -381,6 +381,63 @@ export type Database = {
           },
         ]
       }
+      plan_history: {
+        Row: {
+          amount_paid: number
+          changed_by: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          institute_id: string
+          notes: string | null
+          payment_mode: string | null
+          plan_id: string | null
+          plan_name: string
+          started_at: string
+        }
+        Insert: {
+          amount_paid?: number
+          changed_by?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          institute_id: string
+          notes?: string | null
+          payment_mode?: string | null
+          plan_id?: string | null
+          plan_name: string
+          started_at?: string
+        }
+        Update: {
+          amount_paid?: number
+          changed_by?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          institute_id?: string
+          notes?: string | null
+          payment_mode?: string | null
+          plan_id?: string | null
+          plan_name?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_history_institute_id_fkey"
+            columns: ["institute_id"]
+            isOneToOne: false
+            referencedRelation: "institutes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_history_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           created_at: string | null
