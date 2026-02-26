@@ -110,7 +110,7 @@ function AddTeacherModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     email: '', password: '', firstName: '', lastName: '', phone: '',
-    employeeId: '', qualification: '', specialization: '', experienceYears: '',
+    qualification: '', specialization: '', experienceYears: '',
   });
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -128,7 +128,6 @@ function AddTeacherModal({ onClose }: { onClose: () => void }) {
           firstName: form.firstName,
           lastName: form.lastName,
           phone: form.phone || undefined,
-          employeeId: form.employeeId,
           qualification: form.qualification || undefined,
           specialization: form.specialization ? form.specialization.split(',').map(s => s.trim()) : undefined,
           experienceYears: form.experienceYears ? parseInt(form.experienceYears) : 0,
@@ -169,10 +168,7 @@ function AddTeacherModal({ onClose }: { onClose: () => void }) {
           <Field label="Email" type="email" value={form.email} onChange={set('email')} required />
           <Field label="Password" type="password" value={form.password} onChange={set('password')} required minLength={6}
             placeholder="Min 6 characters" />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Employee ID" value={form.employeeId} onChange={set('employeeId')} required placeholder="e.g. TCH-001" />
-            <Field label="Phone" value={form.phone} onChange={set('phone')} placeholder="+91 98765 43210" />
-          </div>
+          <Field label="Phone" value={form.phone} onChange={set('phone')} placeholder="+91 98765 43210" />
           <Field label="Qualification" value={form.qualification} onChange={set('qualification')} placeholder="e.g. M.Tech, IIT Delhi" />
           <Field label="Specialization" value={form.specialization} onChange={set('specialization')} placeholder="Comma-separated, e.g. Math, Physics" />
           <Field label="Experience (years)" type="number" value={form.experienceYears} onChange={set('experienceYears')} placeholder="0" />
