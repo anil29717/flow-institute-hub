@@ -9,12 +9,15 @@ import AdminLoginPage from "./pages/AdminLoginPage";
 import AppLayout from "./components/layout/AppLayout";
 import AdminLayout from "./components/layout/AdminLayout";
 import OwnerDashboard from "./pages/OwnerDashboard";
+import TeacherDashboard from "./pages/TeacherDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import TeachersPage from "./pages/TeachersPage";
 import StudentsPage from "./pages/StudentsPage";
+import TeacherStudentsPage from "./pages/TeacherStudentsPage";
 import BatchesPage from "./pages/BatchesPage";
 import AttendancePage from "./pages/AttendancePage";
-
+import TeacherSalaryHistory from "./pages/TeacherSalaryHistory";
+import TeacherProfilePage from "./pages/TeacherProfilePage";
 import FeesPage from "./pages/FeesPage";
 import LeavesPage from "./pages/LeavesPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -67,17 +70,16 @@ function AppRoutes() {
           <AppLayout>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<OwnerDashboard />} />
+              <Route path="/dashboard" element={user?.role === 'teacher' ? <TeacherDashboard /> : <OwnerDashboard />} />
               <Route path="/teachers" element={<TeachersPage />} />
-              <Route path="/students" element={<StudentsPage />} />
+              <Route path="/students" element={user?.role === 'teacher' ? <TeacherStudentsPage /> : <StudentsPage />} />
               <Route path="/batches" element={<BatchesPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/fees" element={<FeesPage />} />
-              <Route path="/salary" element={<SalaryPage />} />
+              <Route path="/salary" element={user?.role === 'teacher' ? <TeacherSalaryHistory /> : <SalaryPage />} />
               <Route path="/leaves" element={<LeavesPage />} />
               <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/classes" element={<NotFound />} />
-              <Route path="/feedback" element={<NotFound />} />
+              <Route path="/profile" element={<TeacherProfilePage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppLayout>
