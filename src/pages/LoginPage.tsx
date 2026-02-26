@@ -5,7 +5,7 @@ import { GraduationCap, Shield, BookOpen, Loader2, ArrowLeft } from 'lucide-reac
 import { toast } from 'sonner';
 
 type AppRole = 'owner' | 'teacher';
-type Mode = 'select' | 'login' | 'signup';
+type Mode = 'select' | 'login';
 
 const roles: { role: AppRole; label: string; description: string; icon: typeof Shield }[] = [
   { role: 'owner', label: 'Institute Owner', description: 'Full access to manage teachers, courses, finances and reports', icon: Shield },
@@ -13,15 +13,12 @@ const roles: { role: AppRole; label: string; description: string; icon: typeof S
 ];
 
 export default function LoginPage() {
-  const { login, signup } = useAuth();
+  const { login } = useAuth();
   const [mode, setMode] = useState<Mode>('select');
   const [selectedRole, setSelectedRole] = useState<AppRole>('owner');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignup, setIsSignup] = useState(false);
 
   const handleSelectRole = (role: AppRole) => {
     setSelectedRole(role);
@@ -31,21 +28,8 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
-    if (isSignup) {
-      const { error } = await signup(email, password, firstName, lastName, selectedRole);
-      if (error) {
-        toast.error(error);
-      } else {
-        toast.success('Account created! Please check your email to verify your account.');
-        setIsSignup(false);
-      }
-    } else {
-      const { error } = await login(email, password);
-      if (error) {
-        toast.error(error);
-      }
-    }
+    const { error } = await login(email, password);
+    if (error) toast.error(error);
     setIsLoading(false);
   };
 
@@ -87,7 +71,7 @@ export default function LoginPage() {
 
           {mode === 'select' ? (
             <>
-              <h2 className="text-2xl font-display font-bold text-foreground mb-2">Welcome</h2>
+              <h2 className="text-2xl font-display font-bold text-foreground mb-2">Welcome back</h2>
               <p className="text-muted-foreground mb-8">Select your role to continue</p>
               <div className="space-y-3">
                 {roles.map((item, i) => {
@@ -110,32 +94,16 @@ export default function LoginPage() {
             </>
           ) : (
             <>
-              <button onClick={() => { setMode('select'); setIsSignup(false); }}
+              <button onClick={() => setMode('select')}
                 className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
                 <ArrowLeft className="w-4 h-4" /> Back to role selection
               </button>
               <h2 className="text-2xl font-display font-bold text-foreground mb-2">
-                {isSignup ? 'Create Account' : 'Sign In'} — {selectedRole === 'owner' ? 'Owner' : 'Teacher'}
+                Sign In — {selectedRole === 'owner' ? 'Owner' : 'Teacher'}
               </h2>
-              <p className="text-muted-foreground mb-6">
-                {isSignup ? 'Fill in your details to get started' : 'Enter your credentials to continue'}
-              </p>
+              <p className="text-muted-foreground mb-6">Enter your credentials to continue</p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                {isSignup && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-1 block">First Name</label>
-                      <input type="text" required value={firstName} onChange={e => setFirstName(e.target.value)}
-                        className="w-full px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-1 block">Last Name</label>
-                      <input type="text" required value={lastName} onChange={e => setLastName(e.target.value)}
-                        className="w-full px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                    </div>
-                  </div>
-                )}
                 <div>
                   <label className="text-sm font-medium text-foreground mb-1 block">Email</label>
                   <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
@@ -149,16 +117,9 @@ export default function LoginPage() {
                 <button type="submit" disabled={isLoading}
                   className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2">
                   {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {isSignup ? 'Create Account' : 'Sign In'}
+                  Sign In
                 </button>
               </form>
-
-              <p className="text-sm text-muted-foreground mt-6 text-center">
-                {isSignup ? 'Already have an account?' : "Don't have an account?"}{' '}
-                <button onClick={() => setIsSignup(!isSignup)} className="text-accent font-medium hover:underline">
-                  {isSignup ? 'Sign In' : 'Sign Up'}
-                </button>
-              </p>
             </>
           )}
         </div>
