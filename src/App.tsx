@@ -12,7 +12,7 @@ import OwnerDashboard from "./pages/OwnerDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import TeachersPage from "./pages/TeachersPage";
 import StudentsPage from "./pages/StudentsPage";
-import CoursesPage from "./pages/CoursesPage";
+
 import FeesPage from "./pages/FeesPage";
 import LeavesPage from "./pages/LeavesPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
@@ -67,7 +67,6 @@ function AppRoutes() {
               <Route path="/dashboard" element={<OwnerDashboard />} />
               <Route path="/teachers" element={<TeachersPage />} />
               <Route path="/students" element={<StudentsPage />} />
-              <Route path="/courses" element={<CoursesPage />} />
               <Route path="/batches" element={<PlaceholderPage title="Batches" />} />
               <Route path="/attendance" element={<PlaceholderPage title="Attendance" />} />
               <Route path="/fees" element={<FeesPage />} />

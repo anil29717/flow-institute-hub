@@ -11,7 +11,7 @@ import {
 const ownerNav = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { label: 'Teachers', path: '/teachers', icon: Users },
-  { label: 'Courses', path: '/courses', icon: BookOpen },
+  { label: 'Students', path: '/students', icon: GraduationCap },
   { label: 'Batches', path: '/batches', icon: Layers },
   { label: 'Attendance', path: '/attendance', icon: ClipboardList },
   { label: 'Fees', path: '/fees', icon: CreditCard },

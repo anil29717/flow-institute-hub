@@ -89,6 +89,31 @@ export function useUpdateLeaveStatus() {
   });
 }
 
+// ─── Students ───
+export function useStudents() {
+  return useQuery({
+    queryKey: ['students'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('students').select('*, courses(name), batches(name)').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useCreateStudent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (student: { student_id: string; first_name: string; last_name: string; email?: string; phone?: string; guardian_name?: string; guardian_phone?: string; institute_id: string; course_id?: string; batch_id?: string }) => {
+      const { data, error } = await supabase.from('students').insert(student).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['students'] }); toast.success('Student added'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 // ─── Attendance ───
 export function useAttendance() {
   return useQuery({

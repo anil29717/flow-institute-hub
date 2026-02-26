@@ -11,6 +11,7 @@ interface AuthUser {
   lastName: string;
   role: AppRole | null;
   profileId: string | null;
+  instituteId: string | null;
 }
 
 interface AuthContextType {
@@ -46,6 +47,7 @@ async function fetchUserData(userId: string): Promise<AuthUser | null> {
     lastName: profile.last_name,
     role: (roleData?.role as AppRole) ?? null,
     profileId: profile.id,
+    instituteId: profile.institute_id ?? null,
   };
 }
 
