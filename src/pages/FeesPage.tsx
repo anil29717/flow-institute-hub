@@ -1,6 +1,6 @@
-import { mockFees } from '@/data/mockData';
+import { useFees } from '@/hooks/useSupabaseData';
 import { motion } from 'framer-motion';
-import { IndianRupee, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { IndianRupee, TrendingUp, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 
 const statusColors: Record<string, string> = {
   paid: 'bg-success/10 text-success',
@@ -9,8 +9,15 @@ const statusColors: Record<string, string> = {
 };
 
 export default function FeesPage() {
-  const totalCollected = mockFees.filter(f => f.status === 'paid').reduce((s, f) => s + f.amount, 0);
-  const totalPending = mockFees.filter(f => f.status !== 'paid').reduce((s, f) => s + f.amount, 0);
+  const { data: fees, isLoading } = useFees();
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  }
+
+  const allFees = fees ?? [];
+  const totalCollected = allFees.filter(f => f.status === 'paid').reduce((s, f) => s + Number(f.amount), 0);
+  const totalPending = allFees.filter(f => f.status !== 'paid').reduce((s, f) => s + Number(f.amount), 0);
 
   return (
     <div className="space-y-6">
@@ -31,33 +38,39 @@ export default function FeesPage() {
         </div>
       </div>
 
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/50">
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Student</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Amount</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Due Date</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Receipt</th>
-              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mockFees.map((fee, i) => (
-              <motion.tr key={fee.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }}
-                className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                <td className="px-4 py-3 font-medium text-foreground">{fee.studentName}</td>
-                <td className="px-4 py-3 text-foreground">₹{fee.amount.toLocaleString()}</td>
-                <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{fee.dueDate}</td>
-                <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{fee.receiptNo || '—'}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusColors[fee.status]}`}>{fee.status}</span>
-                </td>
-              </motion.tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {allFees.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <p className="text-lg font-medium">No fee records yet</p>
+        </div>
+      ) : (
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Student</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Amount</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Due Date</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Receipt</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allFees.map((fee, i) => (
+                <motion.tr key={fee.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }}
+                  className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                  <td className="px-4 py-3 font-medium text-foreground">{fee.student_name}</td>
+                  <td className="px-4 py-3 text-foreground">₹{Number(fee.amount).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{fee.due_date}</td>
+                  <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{fee.receipt_no || '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusColors[fee.status] ?? ''}`}>{fee.status}</span>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
