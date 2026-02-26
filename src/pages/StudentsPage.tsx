@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStudents, useCreateStudent, useBatches, useInstitute } from '@/hooks/useSupabaseData';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, Plus, Loader2, X, CalendarIcon } from 'lucide-react';
+import { Search, Plus, Loader2, X, CalendarIcon, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 const feeColors: Record<string, string> = {
   paid: 'bg-success/10 text-success',
@@ -22,6 +24,7 @@ export default function StudentsPage() {
   const { data: students, isLoading } = useStudents();
   const { data: batches } = useBatches();
   const { data: institute } = useInstitute(user?.instituteId ?? null);
+  const { data: planLimits } = usePlanLimits();
   const createStudent = useCreateStudent();
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
@@ -42,8 +45,11 @@ export default function StudentsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.instituteId) {
-      const { toast } = await import('sonner');
       toast.error('No institute linked to your account. Please re-login.');
+      return;
+    }
+    if (planLimits?.hasPlan && !planLimits.canAddStudent) {
+      toast.error(planLimits.isExpired ? 'Your plan has expired. Contact admin.' : `Student limit reached (${planLimits.maxStudents}). Upgrade your plan.`);
       return;
     }
     const studentId = generateStudentId(form.first_name);
@@ -71,7 +77,13 @@ export default function StudentsPage() {
           <h1 className="text-2xl font-display font-bold text-foreground">Students</h1>
           <p className="text-muted-foreground">View and manage student records</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={v => {
+          if (v && planLimits?.hasPlan && !planLimits.canAddStudent) {
+            toast.error(planLimits.isExpired ? 'Your plan has expired.' : `Student limit reached (${planLimits.maxStudents}). Upgrade your plan.`);
+            return;
+          }
+          setOpen(v);
+        }}>
           <DialogTrigger asChild>
             <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">
               <Plus className="w-4 h-4" /> Add Student
@@ -109,6 +121,21 @@ export default function StudentsPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Plan usage banner */}
+      {planLimits?.hasPlan && (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm ${
+          planLimits.isExpired ? 'bg-destructive/10 border-destructive/30 text-destructive' :
+          !planLimits.canAddStudent ? 'bg-warning/10 border-warning/30 text-warning' :
+          'bg-muted border-border text-muted-foreground'
+        }`}>
+          {(planLimits.isExpired || !planLimits.canAddStudent) && <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
+          <span>
+            <strong>{planLimits.planName}</strong> plan — {planLimits.currentStudents}/{planLimits.maxStudents} students used
+            {planLimits.isExpired && ' · Plan expired'}
+          </span>
+        </div>
+      )}
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
