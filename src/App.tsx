@@ -5,8 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import LoginPage from "./pages/LoginPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
 import AppLayout from "./components/layout/AppLayout";
+import AdminLayout from "./components/layout/AdminLayout";
 import OwnerDashboard from "./pages/OwnerDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import TeachersPage from "./pages/TeachersPage";
 import StudentsPage from "./pages/StudentsPage";
 import CoursesPage from "./pages/CoursesPage";
@@ -19,7 +22,7 @@ import { Loader2 } from "lucide-react";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
 
   if (loading) {
     return (
@@ -29,27 +32,56 @@ function AppRoutes() {
     );
   }
 
-  if (!isAuthenticated) return <LoginPage />;
-
   return (
-    <AppLayout>
-      <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<OwnerDashboard />} />
-        <Route path="/teachers" element={<TeachersPage />} />
-        <Route path="/students" element={<StudentsPage />} />
-        <Route path="/courses" element={<CoursesPage />} />
-        <Route path="/batches" element={<PlaceholderPage title="Batches" />} />
-        <Route path="/attendance" element={<PlaceholderPage title="Attendance" />} />
-        <Route path="/fees" element={<FeesPage />} />
-        <Route path="/leaves" element={<LeavesPage />} />
-        <Route path="/reports" element={<PlaceholderPage title="Reports & Analytics" />} />
-        <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
-        <Route path="/classes" element={<PlaceholderPage title="My Classes" />} />
-        <Route path="/feedback" element={<PlaceholderPage title="Feedback" />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </AppLayout>
+    <Routes>
+      {/* Admin login route - always accessible */}
+      <Route path="/admin/login" element={
+        isAuthenticated && user?.role === 'admin' ? <Navigate to="/admin" replace /> : <AdminLoginPage />
+      } />
+
+      {/* Admin routes */}
+      {isAuthenticated && user?.role === 'admin' && (
+        <Route path="/admin/*" element={
+          <AdminLayout>
+            <Routes>
+              <Route path="/" element={<AdminDashboard />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AdminLayout>
+        } />
+      )}
+
+      {/* Redirect admin away from institute routes */}
+      {isAuthenticated && user?.role === 'admin' && (
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      )}
+
+      {/* Institute/Teacher routes */}
+      {!isAuthenticated ? (
+        <Route path="*" element={<LoginPage />} />
+      ) : (
+        <Route path="*" element={
+          <AppLayout>
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<OwnerDashboard />} />
+              <Route path="/teachers" element={<TeachersPage />} />
+              <Route path="/students" element={<StudentsPage />} />
+              <Route path="/courses" element={<CoursesPage />} />
+              <Route path="/batches" element={<PlaceholderPage title="Batches" />} />
+              <Route path="/attendance" element={<PlaceholderPage title="Attendance" />} />
+              <Route path="/fees" element={<FeesPage />} />
+              <Route path="/leaves" element={<LeavesPage />} />
+              <Route path="/reports" element={<PlaceholderPage title="Reports & Analytics" />} />
+              <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
+              <Route path="/classes" element={<PlaceholderPage title="My Classes" />} />
+              <Route path="/feedback" element={<PlaceholderPage title="Feedback" />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AppLayout>
+        } />
+      )}
+    </Routes>
   );
 }
 
