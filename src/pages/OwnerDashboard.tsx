@@ -1,8 +1,6 @@
 import { motion } from 'framer-motion';
-import { Users, GraduationCap, BookOpen, IndianRupee, TrendingUp, Layers, Calendar, Loader2 } from 'lucide-react';
+import { Users, GraduationCap, IndianRupee, TrendingUp, Layers, Calendar, Loader2 } from 'lucide-react';
 import { useDashboardStats, useLeaveRequests, useFees } from '@/hooks/useSupabaseData';
-import { revenueData, attendanceData, courseDistribution } from '@/data/mockData';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function OwnerDashboard() {
@@ -18,7 +16,7 @@ export default function OwnerDashboard() {
     { label: 'Total Teachers', value: stats?.totalTeachers ?? 0, icon: Users, gradient: 'stat-gradient-1' },
     { label: 'Total Students', value: stats?.totalStudents ?? 0, icon: GraduationCap, gradient: 'stat-gradient-2' },
     { label: 'Active Batches', value: stats?.activeBatches ?? 0, icon: Layers, gradient: 'stat-gradient-3' },
-    { label: 'Revenue', value: `₹${((stats?.totalRevenue ?? 0) / 1000).toFixed(0)}k`, icon: IndianRupee, gradient: 'stat-gradient-4' },
+    { label: 'Revenue Collected', value: `₹${((stats?.totalRevenue ?? 0) / 1000).toFixed(0)}k`, icon: IndianRupee, gradient: 'stat-gradient-4' },
   ];
 
   if (isLoading) {
@@ -49,68 +47,46 @@ export default function OwnerDashboard() {
         })}
       </div>
 
-      {/* Charts row — still using mock chart data for visualization */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-card rounded-xl border border-border p-5">
-          <h3 className="font-display font-semibold text-foreground mb-4">Revenue Overview</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={revenueData}>
-              <defs>
-                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(175, 60%, 40%)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(175, 60%, 40%)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 89%)" />
-              <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'hsl(220, 10%, 46%)' }} />
-              <YAxis tick={{ fontSize: 12, fill: 'hsl(220, 10%, 46%)' }} tickFormatter={(v) => `₹${v / 1000}k`} />
-              <Tooltip formatter={(v: number) => [`₹${v.toLocaleString()}`, 'Revenue']} />
-              <Area type="monotone" dataKey="revenue" stroke="hsl(175, 60%, 40%)" fill="url(#revGrad)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="bg-card rounded-xl border border-border p-5">
-          <h3 className="font-display font-semibold text-foreground mb-4">Course Distribution</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={courseDistribution} dataKey="students" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                {courseDistribution.map((entry, index) => (<Cell key={index} fill={entry.fill} />))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="space-y-1.5 mt-2">
-            {courseDistribution.map((c) => (
-              <div key={c.name} className="flex items-center gap-2 text-xs">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: c.fill }} />
-                <span className="text-muted-foreground flex-1">{c.name}</span>
-                <span className="font-medium text-foreground">{c.students}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
+      {/* Pending Fees & Leaves */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-card rounded-xl border border-border p-5">
-          <h3 className="font-display font-semibold text-foreground mb-4">Weekly Attendance</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={attendanceData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 89%)" />
-              <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'hsl(220, 10%, 46%)' }} />
-              <YAxis tick={{ fontSize: 12, fill: 'hsl(220, 10%, 46%)' }} />
-              <Tooltip />
-              <Bar dataKey="present" fill="hsl(175, 60%, 40%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="absent" fill="hsl(0, 72%, 51%)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <h3 className="font-display font-semibold text-foreground mb-4">Fee Summary</h3>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">Collected</p>
+              <p className="text-lg font-display font-bold text-foreground">₹{((stats?.totalRevenue ?? 0) / 1000).toFixed(0)}k</p>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">Pending</p>
+              <p className="text-lg font-display font-bold text-destructive">₹{((stats?.pendingFees ?? 0) / 1000).toFixed(0)}k</p>
+            </div>
+          </div>
+          {overdueFees.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Overdue</p>
+              {overdueFees.slice(0, 5).map((fee) => (
+                <div key={fee.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/50">
+                  <div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center">
+                    <IndianRupee className="w-4 h-4 text-destructive" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{fee.student_name}</p>
+                    <p className="text-xs text-muted-foreground">₹{Number(fee.amount).toLocaleString()} due {fee.due_date}</p>
+                  </div>
+                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-destructive/10 text-destructive">Overdue</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No overdue fees — great job!</p>
+          )}
         </div>
 
         <div className="bg-card rounded-xl border border-border p-5">
-          <h3 className="font-display font-semibold text-foreground mb-4">Pending Actions</h3>
+          <h3 className="font-display font-semibold text-foreground mb-4">Pending Leave Requests</h3>
           <div className="space-y-3">
-            {pendingLeaves.length === 0 && overdueFees.length === 0 && (
-              <p className="text-sm text-muted-foreground">No pending actions — everything's up to date!</p>
+            {pendingLeaves.length === 0 && (
+              <p className="text-sm text-muted-foreground">No pending leave requests.</p>
             )}
             {pendingLeaves.map((leave) => {
               const teacherProfile = (leave as any).teachers?.profiles;
@@ -128,18 +104,6 @@ export default function OwnerDashboard() {
                 </div>
               );
             })}
-            {overdueFees.map((fee) => (
-              <div key={fee.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center">
-                  <IndianRupee className="w-4 h-4 text-destructive" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{fee.student_name} — Fee overdue</p>
-                  <p className="text-xs text-muted-foreground">₹{Number(fee.amount).toLocaleString()} due {fee.due_date}</p>
-                </div>
-                <span className="px-2 py-1 text-xs font-medium rounded-full bg-destructive/10 text-destructive">Overdue</span>
-              </div>
-            ))}
           </div>
         </div>
       </div>

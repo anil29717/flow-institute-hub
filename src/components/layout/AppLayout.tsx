@@ -15,7 +15,6 @@ const ownerNav = [
   { label: 'Batches', path: '/batches', icon: Layers },
   { label: 'Attendance', path: '/attendance', icon: ClipboardList },
   { label: 'Fees', path: '/fees', icon: CreditCard },
-  { label: 'Reports', path: '/reports', icon: BarChart3 },
   { label: 'Settings', path: '/settings', icon: Settings },
 ];
 
