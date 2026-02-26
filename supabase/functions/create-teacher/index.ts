@@ -35,19 +35,54 @@ serve(async (req) => {
 
     if (!roleData) throw new Error("Only owners can create teacher accounts");
 
-    // Get caller's institute for auto-generating employee_id
+    // Get caller's institute
     const { data: callerProfile } = await supabaseAdmin
       .from("profiles")
       .select("institute_id")
       .eq("user_id", caller.id)
       .single();
 
+    const instituteId = callerProfile?.institute_id;
+
+    // Check plan limits
+    if (instituteId) {
+      const { data: inst } = await supabaseAdmin
+        .from("institutes")
+        .select("plan_id, plan_expires_at")
+        .eq("id", instituteId)
+        .single();
+
+      if (inst?.plan_id) {
+        // Check expiry
+        if (inst.plan_expires_at && new Date(inst.plan_expires_at) < new Date()) {
+          throw new Error("Your plan has expired. Please contact admin to renew.");
+        }
+
+        const { data: plan } = await supabaseAdmin
+          .from("plans")
+          .select("max_teachers")
+          .eq("id", inst.plan_id)
+          .single();
+
+        if (plan) {
+          const { count } = await supabaseAdmin
+            .from("teachers")
+            .select("id", { count: "exact", head: true })
+            .eq("institute_id", instituteId);
+
+          if ((count ?? 0) >= plan.max_teachers) {
+            throw new Error(`Teacher limit reached (${plan.max_teachers}). Upgrade your plan to add more teachers.`);
+          }
+        }
+      }
+    }
+
     let instCode = "INST";
-    if (callerProfile?.institute_id) {
+    if (instituteId) {
       const { data: inst } = await supabaseAdmin
         .from("institutes")
         .select("code")
-        .eq("id", callerProfile.institute_id)
+        .eq("id", instituteId)
         .single();
       if (inst?.code) instCode = inst.code.toUpperCase();
     }
@@ -83,7 +118,7 @@ serve(async (req) => {
     // 3. Update profile with phone and institute_id
     const updateData: Record<string, unknown> = {};
     if (phone) updateData.phone = phone;
-    if (callerProfile?.institute_id) updateData.institute_id = callerProfile.institute_id;
+    if (instituteId) updateData.institute_id = instituteId;
     if (Object.keys(updateData).length > 0) {
       await supabaseAdmin.from("profiles").update(updateData).eq("user_id", userId);
     }
@@ -101,7 +136,7 @@ serve(async (req) => {
     const { error: teacherError } = await supabaseAdmin.from("teachers").insert({
       profile_id: profile.id,
       employee_id: employeeId,
-      institute_id: callerProfile?.institute_id || null,
+      institute_id: instituteId || null,
       qualification: qualification || null,
       specialization: specialization || null,
       experience_years: experienceYears || 0,

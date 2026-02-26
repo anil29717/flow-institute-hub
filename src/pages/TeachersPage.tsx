@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTeachers } from '@/hooks/useSupabaseData';
-import { Search, Plus, Mail, Phone, Loader2, X, IndianRupee, CalendarIcon, ChevronRight } from 'lucide-react';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { Search, Plus, Mail, Phone, Loader2, X, IndianRupee, CalendarIcon, ChevronRight, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -12,6 +13,7 @@ export default function TeachersPage() {
   const [search, setSearch] = useState('');
   const { data: teachers, isLoading } = useTeachers();
   const { user } = useAuth();
+  const { data: planLimits } = usePlanLimits();
   const isOwner = user?.role === 'owner';
   const [showForm, setShowForm] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
@@ -40,12 +42,33 @@ export default function TeachersPage() {
           <p className="text-muted-foreground">Manage your teaching staff</p>
         </div>
         {isOwner && (
-          <button onClick={() => setShowForm(true)}
+          <button onClick={() => {
+            if (planLimits?.hasPlan && !planLimits.canAddTeacher) {
+              toast.error(planLimits.isExpired ? 'Your plan has expired.' : `Teacher limit reached (${planLimits.maxTeachers}). Upgrade your plan.`);
+              return;
+            }
+            setShowForm(true);
+          }}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">
             <Plus className="w-4 h-4" /> Add Teacher
           </button>
         )}
       </div>
+
+      {/* Plan usage banner */}
+      {isOwner && planLimits?.hasPlan && (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm ${
+          planLimits.isExpired ? 'bg-destructive/10 border-destructive/30 text-destructive' :
+          !planLimits.canAddTeacher ? 'bg-warning/10 border-warning/30 text-warning' :
+          'bg-muted border-border text-muted-foreground'
+        }`}>
+          {(planLimits.isExpired || !planLimits.canAddTeacher) && <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
+          <span>
+            <strong>{planLimits.planName}</strong> plan — {planLimits.currentTeachers}/{planLimits.maxTeachers} teachers used
+            {planLimits.isExpired && ' · Plan expired'}
+          </span>
+        </div>
+      )}
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
