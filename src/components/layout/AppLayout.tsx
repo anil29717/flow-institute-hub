@@ -21,10 +21,10 @@ const ownerNav = [
 
 const teacherNav = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'My Classes', path: '/classes', icon: BookOpen },
+  { label: 'My Students', path: '/students', icon: GraduationCap },
   { label: 'Attendance', path: '/attendance', icon: ClipboardList },
-  { label: 'Leave', path: '/leaves', icon: Calendar },
-  { label: 'Feedback', path: '/feedback', icon: MessageSquare },
+  { label: 'Salary', path: '/salary', icon: Wallet },
+  { label: 'Profile', path: '/profile', icon: Users },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
