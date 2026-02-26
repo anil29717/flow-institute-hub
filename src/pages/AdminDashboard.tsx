@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Building2, Users, GraduationCap, Plus, Loader2, X, Search, CheckCircle, XCircle } from 'lucide-react';
+import { Building2, Users, GraduationCap, Plus, Loader2, X, Search, CheckCircle, XCircle, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AdminDashboard() {
+  const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -14,11 +15,41 @@ export default function AdminDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('institutes')
-        .select('*, profiles(first_name, last_name, email)')
+        .select('*, profiles(first_name, last_name, email), plans(name)')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
+  });
+
+  const { data: plans } = useQuery({
+    queryKey: ['admin_plans'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('plans').select('*').eq('is_active', true).order('price');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const assignPlanMutation = useMutation({
+    mutationFn: async ({ instituteId, planId }: { instituteId: string; planId: string | null }) => {
+      const plan = plans?.find(p => p.id === planId);
+      const updates: any = { plan_id: planId };
+      if (planId && plan) {
+        updates.plan_started_at = new Date().toISOString();
+        updates.plan_expires_at = new Date(Date.now() + plan.max_days * 86400000).toISOString();
+      } else {
+        updates.plan_started_at = null;
+        updates.plan_expires_at = null;
+      }
+      const { error } = await supabase.from('institutes').update(updates).eq('id', instituteId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Plan assigned');
+      qc.invalidateQueries({ queryKey: ['admin_institutes'] });
+    },
+    onError: (err: any) => toast.error(err.message),
   });
 
   const { data: stats } = useQuery({
@@ -125,7 +156,30 @@ export default function AdminDashboard() {
               {inst.address && <p className="text-sm text-muted-foreground mb-2">{inst.address}</p>}
               {inst.email && <p className="text-xs text-muted-foreground mb-1">📧 {inst.email}</p>}
               {inst.phone && <p className="text-xs text-muted-foreground">📞 {inst.phone}</p>}
-              <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
+
+              {/* Plan Assignment */}
+              <div className="mt-3 pt-3 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
+                  <select
+                    value={inst.plan_id ?? ''}
+                    onChange={e => assignPlanMutation.mutate({ instituteId: inst.id, planId: e.target.value || null })}
+                    className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-input bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">No Plan</option>
+                    {plans?.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} — ₹{p.price}</option>
+                    ))}
+                  </select>
+                </div>
+                {inst.plan_expires_at && (
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Expires: {new Date(inst.plan_expires_at).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-2 pt-2 border-t border-border text-xs text-muted-foreground">
                 Created {new Date(inst.created_at).toLocaleDateString()}
               </div>
             </motion.div>

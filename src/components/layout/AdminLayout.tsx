@@ -4,11 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Building2, Users, LogOut, Menu, X,
-  Bell, ChevronRight, ShieldCheck
+  Bell, ChevronRight, ShieldCheck, CreditCard
 } from 'lucide-react';
 
 const adminNav = [
   { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+  { label: 'Plans', path: '/admin/plans', icon: CreditCard },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

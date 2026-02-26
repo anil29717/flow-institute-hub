@@ -11,6 +11,7 @@ import AdminLayout from "./components/layout/AdminLayout";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import PlansPage from "./pages/PlansPage";
 import TeachersPage from "./pages/TeachersPage";
 import StudentsPage from "./pages/StudentsPage";
 import TeacherStudentsPage from "./pages/TeacherStudentsPage";
@@ -51,6 +52,7 @@ function AppRoutes() {
           <AdminLayout>
             <Routes>
               <Route path="/" element={<AdminDashboard />} />
+              <Route path="/plans" element={<PlansPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AdminLayout>
