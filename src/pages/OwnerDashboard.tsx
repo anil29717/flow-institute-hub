@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, GraduationCap, IndianRupee, TrendingUp, Layers, Loader2, CalendarIcon, CreditCard, History } from 'lucide-react';
+import { Users, GraduationCap, IndianRupee, TrendingUp, Layers, Loader2, CalendarIcon, CreditCard, History, AlertTriangle, X } from 'lucide-react';
 import { useDashboardStats, useStudents, useInstitute } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { X } from 'lucide-react';
 
 export default function OwnerDashboard() {
   const { user } = useAuth();
@@ -38,6 +37,41 @@ export default function OwnerDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Expiry Warning Banner */}
+      {planLimits?.hasPlan && planLimits.isExpired && (
+        <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+          className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-destructive">Your plan has expired!</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Your <strong>{planLimits.planName}</strong> plan expired on {(institute as any)?.plan_expires_at ? new Date((institute as any).plan_expires_at).toLocaleDateString() : 'N/A'}.
+              You cannot add new students or teachers until your plan is renewed. Please contact the administrator.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {planLimits?.hasPlan && !planLimits.isExpired && (institute as any)?.plan_expires_at && (() => {
+        const daysLeft = Math.ceil((new Date((institute as any).plan_expires_at).getTime() - Date.now()) / 86400000);
+        if (daysLeft <= 7) {
+          return (
+            <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+              className="rounded-xl border border-warning/30 bg-warning/5 p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-warning">Plan expiring soon!</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Your <strong>{planLimits.planName}</strong> plan expires in <strong>{daysLeft} day{daysLeft !== 1 ? 's' : ''}</strong>.
+                  Contact the administrator to renew your plan.
+                </p>
+              </div>
+            </motion.div>
+          );
+        }
+        return null;
+      })()}
+
       <div>
         <h1 className="text-2xl font-display font-bold text-foreground">Good morning, {user?.firstName}!</h1>
         <p className="text-muted-foreground">Here's what's happening at your institute.</p>

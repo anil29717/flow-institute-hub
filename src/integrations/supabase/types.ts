@@ -777,6 +777,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      deactivate_expired_institutes: { Args: never; Returns: undefined }
       get_teacher_id: { Args: { _user_id: string }; Returns: string }
       get_user_institute_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
