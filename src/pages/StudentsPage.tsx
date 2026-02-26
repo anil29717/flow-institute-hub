@@ -37,9 +37,13 @@ export default function StudentsPage() {
     return `${prefix}-${namePart}-${rand}`;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.instituteId) return;
+    if (!user?.instituteId) {
+      const { toast } = await import('sonner');
+      toast.error('No institute linked to your account. Please re-login.');
+      return;
+    }
     const studentId = generateStudentId(form.first_name);
     createStudent.mutate(
       {
