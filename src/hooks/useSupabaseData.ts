@@ -56,12 +56,24 @@ export function useBatches() {
 export function useCreateBatch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (batch: { name: string; start_date: string; end_date: string; max_students?: number; teacher_id?: string }) => {
+    mutationFn: async (batch: { name: string; start_date: string; end_date: string; max_students?: number; teacher_id?: string; status?: string }) => {
       const { data, error } = await supabase.from('batches').insert(batch).select().single();
       if (error) throw error;
       return data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['batches'] }); toast.success('Batch created'); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useDeleteBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('batches').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['batches'] }); toast.success('Batch deleted'); },
     onError: (e: Error) => toast.error(e.message),
   });
 }
