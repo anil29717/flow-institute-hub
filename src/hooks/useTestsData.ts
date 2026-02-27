@@ -97,8 +97,8 @@ export function useMarks(testId: string | null) {
 export function useUpsertMarks() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (marks: { test_id: string; student_id: string; batch_id: string; marks_obtained: number; total_marks: number }[]) => {
-      const { error } = await supabase.from('marks').upsert(marks, { onConflict: 'test_id,student_id' });
+    mutationFn: async (marks: { test_id: string; student_id: string; batch_id: string; subject: string; marks_obtained: number; total_marks: number }[]) => {
+      const { error } = await supabase.from('marks').upsert(marks, { onConflict: 'test_id,student_id,subject' });
       if (error) throw error;
     },
     onSuccess: (_, vars) => {
