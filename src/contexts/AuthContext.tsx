@@ -58,9 +58,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      // Skip state updates during login plan check to prevent flash
+      if (loginCheckRef.current) return;
       setSession(newSession);
       if (newSession?.user) {
         setTimeout(async () => {
+          if (loginCheckRef.current) return;
           const userData = await fetchUserData(newSession.user.id);
           setUser(userData);
           setLoading(false);
@@ -86,9 +89,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Flag to prevent onAuthStateChange from setting user during plan check
+  const loginCheckRef = React.useRef(false);
+
   const login = async (email: string, password: string) => {
+    loginCheckRef.current = true;
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
+    if (error) {
+      loginCheckRef.current = false;
+      return { error: error.message };
+    }
 
     const userId = data.user.id;
 
@@ -132,11 +142,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (!inst || !inst.plan_id || inst.is_active === false || isExpired) {
           await supabase.auth.signOut();
-          return { error: 'Your institute does not have an active plan. Please contact the administrator.' };
+          loginCheckRef.current = false;
+          return { error: 'NO_ACTIVE_PLAN' };
         }
       }
     }
 
+    // Plan check passed — allow onAuthStateChange to propagate
+    loginCheckRef.current = false;
+    // Manually trigger user fetch since we may have blocked it
+    const userData = await fetchUserData(userId);
+    setUser(userData);
+    setSession(data.session);
     return { error: null };
   };
 
