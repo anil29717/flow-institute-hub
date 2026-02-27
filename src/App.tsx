@@ -72,17 +72,15 @@ function AppRoutes() {
       )}
 
       {/* Institute/Teacher routes */}
-      {!isAuthenticated ? (
-        <>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </>
-      ) : (
-        <Route path="*" element={
+      {/* Public routes */}
+      <Route path="/" element={!isAuthenticated ? <LandingPage /> : <Navigate to="/dashboard" replace />} />
+      <Route path="/login" element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
+
+      {/* Authenticated institute/teacher routes */}
+      {isAuthenticated && user?.role !== 'admin' ? (
+        <Route path="/*" element={
           <AppLayout>
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={user?.role === 'teacher' ? <TeacherDashboard /> : <OwnerDashboard />} />
               <Route path="/teachers" element={<TeachersPage />} />
               <Route path="/students" element={user?.role === 'teacher' ? <TeacherStudentsPage /> : <StudentsPage />} />
@@ -97,7 +95,9 @@ function AppRoutes() {
             </Routes>
           </AppLayout>
         } />
-      )}
+      ) : !isAuthenticated ? (
+        <Route path="*" element={<Navigate to="/" replace />} />
+      ) : null}
     </Routes>
   );
 }
