@@ -8,7 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBatches, useStudents } from '@/hooks/useSupabaseData';
 import { useCreateTest } from '@/hooks/useTestsData';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X, ChevronDown } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+const SUBJECT_OPTIONS = [
+  'Mathematics', 'Physics', 'Chemistry', 'Biology', 'English',
+  'Hindi', 'Computer Science', 'Social Science', 'History',
+  'Geography', 'Economics', 'Accountancy', 'Business Studies',
+  'Political Science', 'Sanskrit', 'General Knowledge',
+];
 
 interface Props {
   open: boolean;
@@ -22,19 +30,35 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
   const createTest = useCreateTest();
 
   const [name, setName] = useState('');
-  const [subject, setSubject] = useState('');
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [customSubject, setCustomSubject] = useState('');
   const [testDate, setTestDate] = useState('');
   const [testTime, setTestTime] = useState('');
   const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [subjectPopoverOpen, setSubjectPopoverOpen] = useState(false);
 
-  // Filter students by selected batches
   const filteredStudents = students?.filter((s: any) => selectedBatches.includes(s.batch_id)) ?? [];
 
-  // When batches change, auto-select all students from those batches
   useEffect(() => {
     setSelectedStudents(filteredStudents.map((s: any) => s.id));
   }, [selectedBatches.join(','), students]);
+
+  const toggleSubject = (sub: string) => {
+    setSelectedSubjects(prev => prev.includes(sub) ? prev.filter(s => s !== sub) : [...prev, sub]);
+  };
+
+  const addCustomSubject = () => {
+    const trimmed = customSubject.trim();
+    if (trimmed && !selectedSubjects.includes(trimmed)) {
+      setSelectedSubjects(prev => [...prev, trimmed]);
+      setCustomSubject('');
+    }
+  };
+
+  const removeSubject = (sub: string) => {
+    setSelectedSubjects(prev => prev.filter(s => s !== sub));
+  };
 
   const toggleBatch = (id: string) => {
     setSelectedBatches(prev => prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]);
@@ -48,7 +72,7 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
   const deselectAll = () => setSelectedStudents([]);
 
   const handleSubmit = () => {
-    if (!name || !subject || !testDate || !selectedBatches.length || !selectedStudents.length) return;
+    if (!name || !selectedSubjects.length || !testDate || !selectedBatches.length || !selectedStudents.length) return;
 
     const studentEntries = selectedStudents.map(sid => {
       const student = students?.find((s: any) => s.id === sid);
@@ -58,7 +82,7 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
     createTest.mutate({
       test: {
         name,
-        subject,
+        subject: selectedSubjects.join(', '),
         test_date: testDate,
         test_time: testTime || undefined,
         institute_id: user?.instituteId ?? undefined,
@@ -69,7 +93,7 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
     }, {
       onSuccess: () => {
         onOpenChange(false);
-        setName(''); setSubject(''); setTestDate(''); setTestTime('');
+        setName(''); setSelectedSubjects([]); setTestDate(''); setTestTime('');
         setSelectedBatches([]); setSelectedStudents([]);
       },
     });
@@ -89,8 +113,46 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
               <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Mid-Term Exam" />
             </div>
             <div className="space-y-2">
-              <Label>Subject *</Label>
-              <Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Mathematics" />
+              <Label>Subjects *</Label>
+              <Popover open={subjectPopoverOpen} onOpenChange={setSubjectPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between font-normal h-auto min-h-10 py-2">
+                    {selectedSubjects.length ? (
+                      <div className="flex flex-wrap gap-1 flex-1 text-left">
+                        {selectedSubjects.map(sub => (
+                          <Badge key={sub} variant="secondary" className="text-xs gap-1">
+                            {sub}
+                            <X className="w-3 h-3 cursor-pointer" onClick={(e) => { e.stopPropagation(); removeSubject(sub); }} />
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">Select subjects...</span>
+                    )}
+                    <ChevronDown className="w-4 h-4 ml-2 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-2" align="start">
+                  <div className="max-h-48 overflow-y-auto space-y-0.5">
+                    {SUBJECT_OPTIONS.map(sub => (
+                      <label key={sub} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
+                        <Checkbox checked={selectedSubjects.includes(sub)} onCheckedChange={() => toggleSubject(sub)} />
+                        {sub}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="border-t border-border mt-2 pt-2 flex gap-2">
+                    <Input
+                      value={customSubject}
+                      onChange={e => setCustomSubject(e.target.value)}
+                      placeholder="Add custom..."
+                      className="h-8 text-xs"
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomSubject(); } }}
+                    />
+                    <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={addCustomSubject} disabled={!customSubject.trim()}>Add</Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -105,17 +167,11 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
             </div>
           </div>
 
-          {/* Batch selection */}
           <div className="space-y-2">
             <Label>Select Batches *</Label>
             <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/30">
               {batches?.map((b: any) => (
-                <Badge
-                  key={b.id}
-                  variant={selectedBatches.includes(b.id) ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() => toggleBatch(b.id)}
-                >
+                <Badge key={b.id} variant={selectedBatches.includes(b.id) ? 'default' : 'outline'} className="cursor-pointer" onClick={() => toggleBatch(b.id)}>
                   {b.name}
                 </Badge>
               ))}
@@ -123,7 +179,6 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
             </div>
           </div>
 
-          {/* Student selection */}
           {selectedBatches.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -136,10 +191,7 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
               <div className="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-1">
                 {filteredStudents.map((s: any) => (
                   <label key={s.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
-                    <Checkbox
-                      checked={selectedStudents.includes(s.id)}
-                      onCheckedChange={() => toggleStudent(s.id)}
-                    />
+                    <Checkbox checked={selectedStudents.includes(s.id)} onCheckedChange={() => toggleStudent(s.id)} />
                     <span>{s.first_name} {s.last_name}</span>
                     <Badge variant="secondary" className="ml-auto text-xs">{s.batches?.name}</Badge>
                   </label>
@@ -149,7 +201,7 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
             </div>
           )}
 
-          <Button onClick={handleSubmit} disabled={createTest.isPending || !name || !subject || !testDate || !selectedBatches.length || !selectedStudents.length} className="w-full">
+          <Button onClick={handleSubmit} disabled={createTest.isPending || !name || !selectedSubjects.length || !testDate || !selectedBatches.length || !selectedStudents.length} className="w-full">
             {createTest.isPending ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating...</> : 'Create Test'}
           </Button>
         </div>

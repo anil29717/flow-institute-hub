@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTests, useDeleteTest } from '@/hooks/useTestsData';
-import { useBatches } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,7 +39,7 @@ export default function TestsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Subject</TableHead>
+                  <TableHead>Subjects</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Batches</TableHead>
                   <TableHead>Students</TableHead>
@@ -48,29 +47,38 @@ export default function TestsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tests.map((test: any) => (
-                  <TableRow key={test.id}>
-                    <TableCell className="font-medium">{test.name}</TableCell>
-                    <TableCell>{test.subject}</TableCell>
-                    <TableCell>{format(new Date(test.test_date), 'dd MMM yyyy')}{test.test_time ? ` • ${test.test_time.slice(0,5)}` : ''}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {test.test_batches?.map((tb: any) => (
-                          <Badge key={tb.batch_id} variant="secondary" className="text-xs">{tb.batches?.name}</Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>{test.test_students?.length ?? 0}</TableCell>
-                    <TableCell className="text-right space-x-1">
-                      <Button size="sm" variant="outline" onClick={() => setMarksTestId(test.id)}>
-                        <ClipboardEdit className="w-4 h-4 mr-1" />Marks
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTest.mutate(test.id)}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {tests.map((test: any) => {
+                  const subjects = test.subject ? test.subject.split(', ') : [];
+                  return (
+                    <TableRow key={test.id}>
+                      <TableCell className="font-medium">{test.name}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {subjects.map((sub: string) => (
+                            <Badge key={sub} variant="outline" className="text-xs">{sub}</Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>{format(new Date(test.test_date), 'dd MMM yyyy')}{test.test_time ? ` • ${test.test_time.slice(0,5)}` : ''}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {test.test_batches?.map((tb: any) => (
+                            <Badge key={tb.batch_id} variant="secondary" className="text-xs">{tb.batches?.name}</Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>{test.test_students?.length ?? 0}</TableCell>
+                      <TableCell className="text-right space-x-1">
+                        <Button size="sm" variant="outline" onClick={() => setMarksTestId(test.id)}>
+                          <ClipboardEdit className="w-4 h-4 mr-1" />Marks
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTest.mutate(test.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
