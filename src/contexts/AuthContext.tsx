@@ -102,18 +102,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const role = roleData?.role as AppRole | null;
 
     if (role !== 'admin') {
-      // Get institute_id from profile
+      // Get institute_id from profile first
       const { data: profile } = await supabase
         .from('profiles')
-        .select('institute_id')
+        .select('id, institute_id')
         .eq('user_id', userId)
         .single();
 
-      if (profile?.institute_id) {
+      let instituteId = profile?.institute_id;
+
+      // For teachers, institute_id may be on the teachers table instead
+      if (!instituteId && role === 'teacher' && profile?.id) {
+        const { data: teacher } = await supabase
+          .from('teachers')
+          .select('institute_id')
+          .eq('profile_id', profile.id)
+          .single();
+        instituteId = teacher?.institute_id ?? null;
+      }
+
+      if (instituteId) {
         const { data: inst } = await supabase
           .from('institutes')
           .select('plan_id, is_active, plan_expires_at')
-          .eq('id', profile.institute_id)
+          .eq('id', instituteId)
           .single();
 
         const isExpired = inst?.plan_expires_at ? new Date(inst.plan_expires_at) < new Date() : false;
