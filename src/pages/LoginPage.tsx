@@ -2,8 +2,16 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { GraduationCap, Shield, BookOpen, Loader2, ArrowLeft } from 'lucide-react';
+import { GraduationCap, Shield, BookOpen, Loader2, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 type AppRole = 'owner' | 'teacher';
 type Mode = 'select' | 'login';
@@ -20,6 +28,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPlanDialog, setShowPlanDialog] = useState(false);
 
   const handleSelectRole = (role: AppRole) => {
     setSelectedRole(role);
@@ -30,28 +39,15 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     
-    // First login to get session
     const { error } = await login(email, password);
     if (error) {
-      toast.error(error);
+      if (error === 'NO_ACTIVE_PLAN') {
+        setShowPlanDialog(true);
+      } else {
+        toast.error(error);
+      }
       setIsLoading(false);
       return;
-    }
-
-    // Check if institute is approved (for owners)
-    const { supabase } = await import('@/integrations/supabase/client');
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (authUser) {
-      const { data: profile } = await supabase.from('profiles').select('institute_id').eq('user_id', authUser.id).single();
-      if (profile?.institute_id) {
-        const { data: institute } = await supabase.from('institutes').select('is_approved').eq('id', profile.institute_id).single();
-        if (institute && !institute.is_approved) {
-          await supabase.auth.signOut();
-          toast.error('Your institute is pending admin approval. Please wait for approval before logging in.');
-          setIsLoading(false);
-          return;
-        }
-      }
     }
 
     setIsLoading(false);
@@ -153,6 +149,35 @@ export default function LoginPage() {
           )}
         </div>
       </div>
+
+      {/* No Active Plan Dialog */}
+      <Dialog open={showPlanDialog} onOpenChange={setShowPlanDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
+              <AlertTriangle className="w-6 h-6 text-destructive" />
+            </div>
+            <DialogTitle className="text-center">No Active Plan Found</DialogTitle>
+            <DialogDescription className="text-center">
+              Your institute does not have an active subscription plan. Please renew your subscription to continue using the platform.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <button
+              onClick={() => setShowPlanDialog(false)}
+              className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity"
+            >
+              Renew Plan
+            </button>
+            <a
+              href="mailto:support@instiflow.ai"
+              className="w-full py-2.5 rounded-lg border border-border bg-card text-foreground font-medium text-sm hover:bg-muted transition-colors text-center"
+            >
+              Contact Support
+            </a>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
