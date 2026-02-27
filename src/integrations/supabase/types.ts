@@ -381,6 +381,61 @@ export type Database = {
           },
         ]
       }
+      marks: {
+        Row: {
+          batch_id: string
+          created_at: string | null
+          id: string
+          marks_obtained: number | null
+          student_id: string
+          test_id: string
+          total_marks: number
+          updated_at: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string | null
+          id?: string
+          marks_obtained?: number | null
+          student_id: string
+          test_id: string
+          total_marks?: number
+          updated_at?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string | null
+          id?: string
+          marks_obtained?: number | null
+          student_id?: string
+          test_id?: string
+          total_marks?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marks_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marks_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marks_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_history: {
         Row: {
           amount_paid: number
@@ -747,6 +802,126 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_batches: {
+        Row: {
+          batch_id: string
+          id: string
+          test_id: string
+        }
+        Insert: {
+          batch_id: string
+          id?: string
+          test_id: string
+        }
+        Update: {
+          batch_id?: string
+          id?: string
+          test_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_batches_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_batches_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_students: {
+        Row: {
+          batch_id: string
+          id: string
+          student_id: string
+          test_id: string
+        }
+        Insert: {
+          batch_id: string
+          id?: string
+          student_id: string
+          test_id: string
+        }
+        Update: {
+          batch_id?: string
+          id?: string
+          student_id?: string
+          test_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_students_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_students_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tests: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          id: string
+          institute_id: string | null
+          name: string
+          subject: string
+          test_date: string
+          test_time: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          id?: string
+          institute_id?: string | null
+          name: string
+          subject: string
+          test_date: string
+          test_time?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          institute_id?: string | null
+          name?: string
+          subject?: string
+          test_date?: string
+          test_time?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tests_institute_id_fkey"
+            columns: ["institute_id"]
+            isOneToOne: false
+            referencedRelation: "institutes"
             referencedColumns: ["id"]
           },
         ]
