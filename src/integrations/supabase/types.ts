@@ -388,6 +388,7 @@ export type Database = {
           id: string
           marks_obtained: number | null
           student_id: string
+          subject: string | null
           test_id: string
           total_marks: number
           updated_at: string | null
@@ -398,6 +399,7 @@ export type Database = {
           id?: string
           marks_obtained?: number | null
           student_id: string
+          subject?: string | null
           test_id: string
           total_marks?: number
           updated_at?: string | null
@@ -408,6 +410,7 @@ export type Database = {
           id?: string
           marks_obtained?: number | null
           student_id?: string
+          subject?: string | null
           test_id?: string
           total_marks?: number
           updated_at?: string | null
