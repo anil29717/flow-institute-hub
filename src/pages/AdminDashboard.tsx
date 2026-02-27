@@ -153,9 +153,23 @@ export default function AdminDashboard() {
                         <CheckCircle className="w-3 h-3" /> Approved
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-warning/10 text-warning">
-                        <XCircle className="w-3 h-3" /> Pending
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const { error } = await supabase.from('institutes').update({ is_approved: true }).eq('id', inst.id);
+                            if (error) { toast.error(error.message); return; }
+                            toast.success(`${inst.name} approved`);
+                            qc.invalidateQueries({ queryKey: ['admin_institutes'] });
+                          }}
+                          className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-success/10 text-success hover:bg-success/20 transition-colors"
+                        >
+                          <CheckCircle className="w-3 h-3" /> Approve
+                        </button>
+                        <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-warning/10 text-warning">
+                          Pending
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>

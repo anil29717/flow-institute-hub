@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { GraduationCap, Shield, BookOpen, Loader2, ArrowLeft } from 'lucide-react';
@@ -28,8 +29,31 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
+    // First login to get session
     const { error } = await login(email, password);
-    if (error) toast.error(error);
+    if (error) {
+      toast.error(error);
+      setIsLoading(false);
+      return;
+    }
+
+    // Check if institute is approved (for owners)
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      const { data: profile } = await supabase.from('profiles').select('institute_id').eq('user_id', authUser.id).single();
+      if (profile?.institute_id) {
+        const { data: institute } = await supabase.from('institutes').select('is_approved').eq('id', profile.institute_id).single();
+        if (institute && !institute.is_approved) {
+          await supabase.auth.signOut();
+          toast.error('Your institute is pending admin approval. Please wait for approval before logging in.');
+          setIsLoading(false);
+          return;
+        }
+      }
+    }
+
     setIsLoading(false);
   };
 
@@ -119,6 +143,11 @@ export default function LoginPage() {
                   {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                   Sign In
                 </button>
+
+                <p className="text-center text-sm text-muted-foreground mt-4">
+                  New institute?{' '}
+                  <Link to="/register" className="text-primary hover:underline font-medium">Register here</Link>
+                </p>
               </form>
             </>
           )}
