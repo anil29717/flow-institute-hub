@@ -112,11 +112,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (profile?.institute_id) {
         const { data: inst } = await supabase
           .from('institutes')
-          .select('plan_id, is_active')
+          .select('plan_id, is_active, plan_expires_at')
           .eq('id', profile.institute_id)
           .single();
 
-        if (!inst || !inst.plan_id || inst.is_active === false) {
+        const isExpired = inst?.plan_expires_at ? new Date(inst.plan_expires_at) < new Date() : false;
+
+        if (!inst || !inst.plan_id || inst.is_active === false || isExpired) {
           await supabase.auth.signOut();
           return { error: 'Your institute does not have an active plan. Please contact the administrator.' };
         }
