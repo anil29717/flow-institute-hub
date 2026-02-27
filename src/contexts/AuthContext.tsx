@@ -87,8 +87,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: error.message };
+
+    const userId = data.user.id;
+
+    // Check role — admins bypass plan check
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .single();
+
+    const role = roleData?.role as AppRole | null;
+
+    if (role !== 'admin') {
+      // Get institute_id from profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('institute_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (profile?.institute_id) {
+        const { data: inst } = await supabase
+          .from('institutes')
+          .select('plan_id, is_active')
+          .eq('id', profile.institute_id)
+          .single();
+
+        if (!inst || !inst.plan_id || inst.is_active === false) {
+          await supabase.auth.signOut();
+          return { error: 'Your institute does not have an active plan. Please contact the administrator.' };
+        }
+      }
+    }
+
+    return { error: null };
   };
 
   const logout = async () => {
