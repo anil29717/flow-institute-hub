@@ -34,8 +34,8 @@ export function usePlanLimits() {
         .single();
 
       if (!inst || !inst.plan_id || !(inst as any).plans) {
-        // No plan assigned — no limits
-        return { planName: null, maxStudents: null, maxTeachers: null, maxDays: null, currentStudents: 0, currentTeachers: 0, isExpired: false, canAddStudent: true, canAddTeacher: true, hasPlan: false };
+        // No plan assigned — block all actions
+        return { planName: null, maxStudents: 0, maxTeachers: 0, maxDays: null, currentStudents: 0, currentTeachers: 0, isExpired: true, canAddStudent: false, canAddTeacher: false, hasPlan: false };
       }
 
       const plan = (inst as any).plans;

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, Calendar,
@@ -34,9 +36,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: planLimits } = usePlanLimits();
 
   const navItems = user?.role === 'teacher' ? teacherNav : ownerNav;
   const roleBadge = user?.role === 'owner' ? 'Owner' : 'Teacher';
+
+  // Show blocked screen for owners/teachers when institute has no active plan
+  const showPlanBlock = user?.role !== 'admin' && planLimits && !planLimits.hasPlan;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -120,7 +126,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Bell className="w-5 h-5" />
           </button>
         </header>
-        <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>
+        <main className="flex-1 overflow-auto p-4 lg:p-6">
+          {showPlanBlock ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center max-w-md space-y-4">
+                <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+                  <AlertTriangle className="w-8 h-8 text-destructive" />
+                </div>
+                <h2 className="text-2xl font-bold text-foreground">No Active Plan</h2>
+                <p className="text-muted-foreground">
+                  Your institute does not have an active plan. Please contact the administrator to activate a plan and regain access.
+                </p>
+                <button onClick={logout} className="mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+                  Logout
+                </button>
+              </div>
+            </div>
+          ) : (
+            children
+          )}
+        </main>
       </div>
     </div>
   );
