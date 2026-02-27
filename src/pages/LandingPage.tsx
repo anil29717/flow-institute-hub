@@ -50,7 +50,7 @@ export default function LandingPage() {
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
               Sign In
             </Link>
-            <Link to="/login"
+            <Link to="/register"
               className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
               Get Started
             </Link>
