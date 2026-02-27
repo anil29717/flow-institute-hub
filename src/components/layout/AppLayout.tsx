@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, Calendar,
   CreditCard, MessageSquare, BarChart3, Settings, LogOut, Menu, X,
-  ClipboardList, Bell, ChevronRight, Layers, Wallet
+  ClipboardList, Bell, ChevronRight, Layers, Wallet, FileText
 } from 'lucide-react';
 
 const ownerNav = [
@@ -16,6 +16,7 @@ const ownerNav = [
   { label: 'Attendance', path: '/attendance', icon: ClipboardList },
   { label: 'Fees', path: '/fees', icon: CreditCard },
   { label: 'Salary', path: '/salary', icon: Wallet },
+  { label: 'Tests', path: '/tests', icon: FileText },
   { label: 'Settings', path: '/settings', icon: Settings },
 ];
 
@@ -24,6 +25,7 @@ const teacherNav = [
   { label: 'My Students', path: '/students', icon: GraduationCap },
   { label: 'Attendance', path: '/attendance', icon: ClipboardList },
   { label: 'Salary', path: '/salary', icon: Wallet },
+  { label: 'Tests', path: '/tests', icon: FileText },
   { label: 'Profile', path: '/profile', icon: Users },
 ];
 

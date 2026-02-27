@@ -27,6 +27,7 @@ import FeesPage from "./pages/FeesPage";
 import LeavesPage from "./pages/LeavesPage";
 import SettingsPage from "./pages/SettingsPage";
 import SalaryPage from "./pages/SalaryPage";
+import TestsPage from "./pages/TestsPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -89,6 +90,7 @@ function AppRoutes() {
               <Route path="/fees" element={<FeesPage />} />
               <Route path="/salary" element={user?.role === 'teacher' ? <TeacherSalaryHistory /> : <SalaryPage />} />
               <Route path="/leaves" element={<LeavesPage />} />
+              <Route path="/tests" element={<TestsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/profile" element={<TeacherProfilePage />} />
               <Route path="*" element={<NotFound />} />
