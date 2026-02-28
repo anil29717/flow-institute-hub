@@ -125,22 +125,6 @@ export default function TeacherStudentsPage() {
 }
 
 function StudentDetailModal({ student, onClose }: { student: any; onClose: () => void }) {
-  const { data: attendance, isLoading } = useQuery({
-    queryKey: ['student_attendance_detail', student.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('student_id', student.id)
-        .order('date', { ascending: false })
-        .limit(30);
-      return data ?? [];
-    },
-  });
-
-  const present = (attendance ?? []).filter(a => a.status === 'present').length;
-  const absent = (attendance ?? []).filter(a => a.status === 'absent').length;
-
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -151,7 +135,7 @@ function StudentDetailModal({ student, onClose }: { student: any; onClose: () =>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="space-y-3 mb-5">
+        <div className="space-y-3">
           <InfoRow label="Student ID" value={student.student_id} />
           <InfoRow label="Phone" value={student.phone || '—'} />
           <InfoRow label="Guardian" value={student.guardian_name || '—'} />
@@ -160,16 +144,6 @@ function StudentDetailModal({ student, onClose }: { student: any; onClose: () =>
           <InfoRow label="School" value={student.school || '—'} />
           <InfoRow label="Class" value={student.class || '—'} />
         </div>
-
-        <h3 className="text-sm font-display font-semibold text-foreground mb-2">Attendance (Last 30)</h3>
-        {isLoading ? (
-          <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
-        ) : (
-          <div className="flex gap-3 mb-3">
-            <span className="text-xs px-2 py-1 rounded-full bg-success/10 text-success font-medium">Present: {present}</span>
-            <span className="text-xs px-2 py-1 rounded-full bg-destructive/10 text-destructive font-medium">Absent: {absent}</span>
-          </div>
-        )}
       </motion.div>
     </motion.div>
   );
