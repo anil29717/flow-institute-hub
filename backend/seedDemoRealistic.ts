@@ -228,9 +228,9 @@ async function seedRealisticDemo() {
         for (const st of students) {
             let testIdsForStudent = [];
             // Assign marks based on batch enrolled
-            if (st.batchId.toString() === batches[0]._id.toString() || st.batchId.toString() === batches[1]._id.toString()) {
+            if (st.batchId?.toString() === batches[0]._id.toString() || st.batchId?.toString() === batches[1]._id.toString()) {
                 testIdsForStudent.push({ testId: test1._id, subject: 'Mathematics' });
-            } else if (st.batchId.toString() === batches[2]._id.toString()) {
+            } else if (st.batchId?.toString() === batches[2]._id.toString()) {
                 testIdsForStudent.push({ testId: test2._id, subject: 'Physics' });
             }
 
