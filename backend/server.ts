@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import cron from 'node-cron'; // <-- Import node-cron
 import authRoutes from './routes/authRoutes';
 import instituteRoutes from './routes/instituteRoutes';
 import teacherRoutes from './routes/teacherRoutes';
@@ -51,7 +52,22 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/instiflow'
 mongoose.connect(MONGO_URI)
     .then(() => {
         console.log('✅ Connected to MongoDB');
-        app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+        app.listen(PORT, () => {
+            console.log(`🚀 Server running on port ${PORT}`);
+
+            // --- CRON JOB: Keep-Alive ---
+            // Runs every 10 minutes (*/10 * * * *)
+            cron.schedule('*/10 * * * *', () => {
+                console.log('⏰ Running self-ping cron job to keep Render awake...');
+                // You can change localhost to your actual Render URL if needed, 
+                // but pinging localhost directly from the server itself also works!
+                fetch(`http://localhost:${PORT}/api/health`)
+                    .then(res => res.json())
+                    .then(data => console.log('✅ Self-ping successful:', data.status))
+                    .catch(err => console.error('❌ Self-ping failed:', err.message));
+            });
+            console.log('⏱️  Keep-alive cron job initialized (runs every 10 mins).');
+        });
     })
     .catch(err => {
         console.error('❌ MongoDB connection error:', err);
