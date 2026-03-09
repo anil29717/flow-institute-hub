@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useBatches, useCreateBatch, useDeleteBatch, useTeachers } from '@/hooks/useSupabaseData';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/api/client';
 import { Plus, Clock, Loader2, Trash2, Users, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -15,18 +15,13 @@ export default function BatchesPage() {
   const createBatch = useCreateBatch();
   const deleteBatch = useDeleteBatch();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', timing: '', teacher_id: '', max_students: '30' });
+  const [form, setForm] = useState({ name: '', timing: '', teacherId: '', maxStudents: '30' });
   const [selectedBatch, setSelectedBatch] = useState<{ id: string; name: string } | null>(null);
 
   const { data: batchStudents, isLoading: studentsLoading } = useQuery({
     queryKey: ['batch_students', selectedBatch?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('students')
-        .select('id, first_name, last_name, phone, email, fee_status, is_active')
-        .eq('batch_id', selectedBatch!.id)
-        .order('first_name');
-      if (error) throw error;
+      const data = await api.get(`/students?batchId=${selectedBatch!.id}`);
       return data;
     },
     enabled: !!selectedBatch?.id,
@@ -34,21 +29,21 @@ export default function BatchesPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // We still need start_date/end_date for DB — use today as placeholder
+    // We still need startDate/endDate for DB — use today as placeholder
     const today = new Date().toISOString().split('T')[0];
     createBatch.mutate(
       {
         name: form.name,
-        start_date: today,
-        end_date: today,
-        max_students: parseInt(form.max_students) || 30,
+        startDate: today,
+        endDate: today,
+        maxStudents: parseInt(form.maxStudents) || 30,
         status: 'ongoing',
-        ...(form.teacher_id ? { teacher_id: form.teacher_id } : {}),
+        ...(form.teacherId ? { teacherId: form.teacherId } : {}),
       },
       {
         onSuccess: () => {
           setOpen(false);
-          setForm({ name: '', timing: '', teacher_id: '', max_students: '30' });
+          setForm({ name: '', timing: '', teacherId: '', maxStudents: '30' });
         },
       }
     );
@@ -83,14 +78,14 @@ export default function BatchesPage() {
                 <div><Label>Batch Name *</Label><Input required value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Batch A" /></div>
                 <div>
                   <Label>Teacher</Label>
-                  <select value={form.teacher_id} onChange={e => setForm(p => ({ ...p, teacher_id: e.target.value }))}
+                  <select value={form.teacherId} onChange={e => setForm(p => ({ ...p, teacherId: e.target.value }))}
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <option value="">Select teacher (optional)</option>
-                    {(teachers ?? []).map(t => <option key={t.id} value={t.id}>{(t as any).profiles?.first_name} {(t as any).profiles?.last_name}</option>)}
+                    {(teachers ?? []).map((t: any) => <option key={t.id || t._id} value={t.id || t._id}>{t.firstName} {t.lastName}</option>)}
                   </select>
                 </div>
                 <div><Label>Timing</Label><Input value={form.timing} onChange={e => setForm(p => ({ ...p, timing: e.target.value }))} placeholder="e.g. 9:00 AM - 11:00 AM" /></div>
-                <div><Label>Max Students</Label><Input type="number" value={form.max_students} onChange={e => setForm(p => ({ ...p, max_students: e.target.value }))} /></div>
+                <div><Label>Max Students</Label><Input type="number" value={form.maxStudents} onChange={e => setForm(p => ({ ...p, maxStudents: e.target.value }))} /></div>
               </div>
               <button type="submit" disabled={createBatch.isPending}
                 className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
@@ -108,17 +103,17 @@ export default function BatchesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {(batches ?? []).map((batch, i) => {
+          {(batches ?? []).map((batch: any, i: number) => {
             const isActive = batch.status === 'ongoing';
             return (
-              <motion.div key={batch.id} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.08 }}
+              <motion.div key={batch.id || batch._id} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.08 }}
                 className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => setSelectedBatch({ id: batch.id, name: batch.name })}>
+                onClick={() => setSelectedBatch({ id: batch.id || batch._id, name: batch.name })}>
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="font-display font-semibold text-foreground">{batch.name}</h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Teacher: {(batch as any).teachers?.profiles?.first_name ? `${(batch as any).teachers.profiles.first_name} ${(batch as any).teachers.profiles.last_name}` : 'Unassigned'}
+                      Teacher: {batch.teacherId ? `${batch.teacherId.firstName} ${batch.teacherId.lastName}` : 'Unassigned'}
                     </p>
                   </div>
                   <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${isActive ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'}`}>
@@ -128,14 +123,14 @@ export default function BatchesPage() {
 
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                   <Clock className="w-3.5 h-3.5" />
-                  <span>{batch.start_date} — {batch.end_date}</span>
+                  <span>{new Date(batch.startDate).toLocaleDateString()} — {new Date(batch.endDate).toLocaleDateString()}</span>
                 </div>
 
                 <div className="flex items-center justify-between pt-3 border-t border-border">
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5" /> {batch.current_students}/{batch.max_students} students
+                    <Users className="w-3.5 h-3.5" /> {batch.currentStudents}/{batch.maxStudents} students
                   </span>
-                  <button onClick={(e) => { e.stopPropagation(); handleDelete(batch.id, batch.name); }}
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(batch.id || batch._id, batch.name); }}
                     className="p-1.5 rounded-md text-destructive hover:bg-destructive/10 transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -169,18 +164,17 @@ export default function BatchesPage() {
             ) : (
               <div className="space-y-2 pb-2">
                 <p className="text-sm text-muted-foreground mb-3">{batchStudents.length} student{batchStudents.length !== 1 ? 's' : ''}</p>
-                {batchStudents.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                {batchStudents.map((s: any) => (
+                  <div key={s.id || s._id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
                     <div>
-                      <p className="font-medium text-sm text-foreground">{s.first_name} {s.last_name}</p>
+                      <p className="font-medium text-sm text-foreground">{s.firstName} {s.lastName}</p>
                       <p className="text-xs text-muted-foreground">{s.phone || s.email || '—'}</p>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      s.fee_status === 'paid' ? 'bg-success/10 text-success' :
-                      s.fee_status === 'partial' ? 'bg-warning/10 text-warning' :
-                      'bg-destructive/10 text-destructive'
-                    }`}>
-                      {s.fee_status}
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.feeStatus === 'paid' ? 'bg-success/10 text-success' :
+                      s.feeStatus === 'partial' ? 'bg-warning/10 text-warning' :
+                        'bg-destructive/10 text-destructive'
+                      }`}>
+                      {s.feeStatus}
                     </span>
                   </div>
                 ))}

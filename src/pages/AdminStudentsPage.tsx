@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { GraduationCap, Search, Loader2, Filter } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { api } from '@/api/client';
+import { GraduationCap, Search, Loader2 } from 'lucide-react';
 
 export default function AdminStudentsPage() {
   const [search, setSearch] = useState('');
@@ -9,35 +8,41 @@ export default function AdminStudentsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const { data: institutes } = useQuery({
-    queryKey: ['admin_institutes_list'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('institutes').select('id, name').order('name');
-      if (error) throw error;
-      return data;
-    },
-  });
+  const [institutes, setInstitutes] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: students, isLoading } = useQuery({
-    queryKey: ['admin_all_students', instituteFilter, dateFrom, dateTo],
-    queryFn: async () => {
-      let query = supabase
-        .from('students')
-        .select('*, institutes(name), courses(name), batches(name)')
-        .order('created_at', { ascending: false });
-      if (instituteFilter) query = query.eq('institute_id', instituteFilter);
-      if (dateFrom) query = query.gte('enrollment_date', dateFrom);
-      if (dateTo) query = query.lte('enrollment_date', dateTo);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
-    },
-  });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const [instRes, studRes] = await Promise.all([
+          api.get('/institutes'),
+          api.get('/students')
+        ]);
+        setInstitutes(instRes);
+        setStudents(studRes);
+      } catch (e) {
+        console.error('Failed to fetch admin students', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
-  const filtered = (students ?? []).filter(s =>
-    `${s.first_name} ${s.last_name} ${s.student_id} ${s.email ?? ''}`
-      .toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = students.filter(s => {
+    if (instituteFilter && s.instituteId?._id !== instituteFilter) return false;
+
+    if (dateFrom || dateTo) {
+      const sDate = s.createdAt ? new Date(s.createdAt) : new Date();
+      if (dateFrom && new Date(sDate) < new Date(dateFrom)) return false;
+      if (dateTo && new Date(sDate) > new Date(dateTo)) return false;
+    }
+
+    return `${s.firstName} ${s.lastName} ${s.studentId} ${s.email ?? ''}`
+      .toLowerCase().includes(search.toLowerCase());
+  });
 
   return (
     <div className="space-y-6">
@@ -56,7 +61,7 @@ export default function AdminStudentsPage() {
         <select value={instituteFilter} onChange={e => setInstituteFilter(e.target.value)}
           className="px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
           <option value="">All Institutes</option>
-          {(institutes ?? []).map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+          {institutes.map(i => <option key={i._id} value={i._id}>{i.name}</option>)}
         </select>
         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
           className="px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
@@ -89,29 +94,27 @@ export default function AdminStudentsPage() {
               </thead>
               <tbody>
                 {filtered.map(s => (
-                  <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                  <tr key={s._id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3">
                       <div>
-                        <p className="font-medium text-foreground">{s.first_name} {s.last_name}</p>
+                        <p className="font-medium text-foreground">{s.firstName} {s.lastName}</p>
                         {s.email && <p className="text-xs text-muted-foreground">{s.email}</p>}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{s.student_id}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{(s as any).institutes?.name ?? '—'}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{(s as any).courses?.name ?? '—'}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{(s as any).batches?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{s.studentId}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{s.instituteId?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{s.courseId?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{s.batchId?.name ?? '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        s.fee_status === 'paid' ? 'bg-success/10 text-success' :
-                        s.fee_status === 'partial' ? 'bg-warning/10 text-warning' :
-                        'bg-destructive/10 text-destructive'
-                      }`}>{s.fee_status}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.feeStatus === 'paid' ? 'bg-success/10 text-success' :
+                          s.feeStatus === 'partial' ? 'bg-warning/10 text-warning' :
+                            'bg-destructive/10 text-destructive'
+                        }`}>{s.feeStatus ?? 'pending'}</span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{new Date(s.enrollment_date).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        s.is_active ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
-                      }`}>{s.is_active ? 'Active' : 'Inactive'}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.isActive ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
+                        }`}>{s.isActive ? 'Active' : 'Inactive'}</span>
                     </td>
                   </tr>
                 ))}

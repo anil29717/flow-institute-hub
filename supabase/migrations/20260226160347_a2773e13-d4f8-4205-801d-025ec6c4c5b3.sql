@@ -1,1 +1,0 @@
-ALTER TABLE public.batches ALTER COLUMN course_id DROP NOT NULL;

@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import type { Session } from '@supabase/supabase-js';
+import { api } from '@/api/client';
 
 type AppRole = 'owner' | 'teacher' | 'admin';
 
@@ -10,161 +9,84 @@ interface AuthUser {
   firstName: string;
   lastName: string;
   role: AppRole | null;
-  profileId: string | null;
   instituteId: string | null;
 }
 
 interface AuthContextType {
   user: AuthUser | null;
-  session: Session | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ error: string | null }>;
-  logout: () => Promise<void>;
+  logout: () => void;
   isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-async function fetchUserData(userId: string): Promise<AuthUser | null> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
-
-  const { data: roleData } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId)
-    .single();
-
-  if (!profile) return null;
-
-  return {
-    id: userId,
-    email: profile.email,
-    firstName: profile.first_name,
-    lastName: profile.last_name,
-    role: (roleData?.role as AppRole) ?? null,
-    profileId: profile.id,
-    instituteId: profile.institute_id ?? null,
-  };
-}
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Fetch user profile on mount if token exists
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      // Skip state updates during login plan check to prevent flash
-      if (loginCheckRef.current) return;
-      setSession(newSession);
-      if (newSession?.user) {
-        setTimeout(async () => {
-          if (loginCheckRef.current) return;
-          const userData = await fetchUserData(newSession.user.id);
-          setUser(userData);
-          setLoading(false);
-        }, 0);
-      } else {
-        setUser(null);
-        setLoading(false);
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
-      setSession(existingSession);
-      if (existingSession?.user) {
-        fetchUserData(existingSession.user.id).then(userData => {
-          setUser(userData);
-          setLoading(false);
-        });
-      } else {
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Flag to prevent onAuthStateChange from setting user during plan check
-  const loginCheckRef = React.useRef(false);
-
-  const login = async (email: string, password: string) => {
-    loginCheckRef.current = true;
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      loginCheckRef.current = false;
-      return { error: error.message };
-    }
-
-    const userId = data.user.id;
-
-    // Check role — admins bypass plan check
-    const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .single();
-
-    const role = roleData?.role as AppRole | null;
-
-    if (role !== 'admin') {
-      // Get institute_id from profile first
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id, institute_id')
-        .eq('user_id', userId)
-        .single();
-
-      let instituteId = profile?.institute_id;
-
-      // For teachers, institute_id may be on the teachers table instead
-      if (!instituteId && role === 'teacher' && profile?.id) {
-        const { data: teacher } = await supabase
-          .from('teachers')
-          .select('institute_id')
-          .eq('profile_id', profile.id)
-          .single();
-        instituteId = teacher?.institute_id ?? null;
-      }
-
-      if (instituteId) {
-        const { data: inst } = await supabase
-          .from('institutes')
-          .select('plan_id, is_active, plan_expires_at')
-          .eq('id', instituteId)
-          .single();
-
-        const isExpired = inst?.plan_expires_at ? new Date(inst.plan_expires_at) < new Date() : false;
-
-        if (!inst || !inst.plan_id || inst.is_active === false || isExpired) {
-          await supabase.auth.signOut();
-          loginCheckRef.current = false;
-          return { error: 'NO_ACTIVE_PLAN' };
+    const fetchUser = async () => {
+      const token = localStorage.getItem('instiflow_auth_token');
+      if (token) {
+        try {
+          const userData = await api.get('/auth/me');
+          setUser({
+            id: userData.id,
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            role: userData.role,
+            instituteId: userData.instituteId
+          });
+        } catch (err) {
+          console.error("Failed to fetch user:", err);
+          localStorage.removeItem('instiflow_auth_token');
+          setUser(null);
         }
       }
-    }
+      setLoading(false);
+    };
 
-    // Plan check passed — allow onAuthStateChange to propagate
-    loginCheckRef.current = false;
-    // Manually trigger user fetch since we may have blocked it
-    const userData = await fetchUserData(userId);
-    setUser(userData);
-    setSession(data.session);
-    return { error: null };
+    fetchUser();
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await api.post('/auth/login', { email, password });
+
+      // Save token
+      localStorage.setItem('instiflow_auth_token', response.token);
+
+      // Fetch user data right after login
+      const userData = await api.get('/auth/me');
+      setUser({
+        id: userData.id,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: userData.role,
+        instituteId: userData.instituteId
+      });
+
+      return { error: null };
+    } catch (err: any) {
+      if (err.message === 'NO_ACTIVE_PLAN') {
+        return { error: 'NO_ACTIVE_PLAN' };
+      }
+      return { error: err.message || 'Login failed' };
+    }
   };
 
-  const logout = async () => {
-    await supabase.auth.signOut();
+  const logout = () => {
+    localStorage.removeItem('instiflow_auth_token');
     setUser(null);
-    setSession(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, login, logout, isAuthenticated: !!session }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

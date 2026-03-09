@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { Building2, Users, GraduationCap, Plus, Loader2, X, Search, CheckCircle, XCircle, CreditCard, History } from 'lucide-react';
+import { api } from '@/api/client';
+import { Building2, Users, Plus, Loader2, X, Search, CheckCircle, CreditCard, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -16,57 +16,26 @@ export default function AdminDashboard() {
 
   const { data: institutes, isLoading: loadingInstitutes } = useQuery({
     queryKey: ['admin_institutes'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('institutes')
-        .select('*, profiles(first_name, last_name, email), plans(name, max_students, max_teachers)')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => api.get('/admin/institutes'),
   });
 
   const { data: plans } = useQuery({
     queryKey: ['admin_plans'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('plans').select('*').eq('is_active', true).order('price');
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => api.get('/admin/plans'),
   });
 
   // Fetch usage counts for all institutes
   const { data: usageCounts } = useQuery({
     queryKey: ['admin_institute_usage'],
-    queryFn: async () => {
-      const [studentsRes, teachersRes] = await Promise.all([
-        supabase.from('students').select('institute_id, id').eq('is_active', true),
-        supabase.from('teachers').select('institute_id, id'),
-      ]);
-      const studentsByInst: Record<string, number> = {};
-      const teachersByInst: Record<string, number> = {};
-      (studentsRes.data ?? []).forEach(s => {
-        if (s.institute_id) studentsByInst[s.institute_id] = (studentsByInst[s.institute_id] || 0) + 1;
-      });
-      (teachersRes.data ?? []).forEach(t => {
-        if (t.institute_id) teachersByInst[t.institute_id] = (teachersByInst[t.institute_id] || 0) + 1;
-      });
-      return { students: studentsByInst, teachers: teachersByInst };
-    },
+    queryFn: () => api.get('/admin/institutes/usage'),
   });
 
   const { data: stats } = useQuery({
     queryKey: ['admin_stats'],
-    queryFn: async () => {
-      const [instRes, teacherRes] = await Promise.all([
-        supabase.from('institutes').select('id', { count: 'exact', head: true }),
-        supabase.from('teachers').select('id', { count: 'exact', head: true }),
-      ]);
-      return { totalInstitutes: instRes.count ?? 0, totalTeachers: teacherRes.count ?? 0 };
-    },
+    queryFn: () => api.get('/admin/stats'),
   });
 
-  const filtered = (institutes ?? []).filter(i =>
+  const filtered = (institutes ?? []).filter((i: any) =>
     i.name.toLowerCase().includes(search.toLowerCase()) ||
     i.code.toLowerCase().includes(search.toLowerCase())
   );
@@ -128,14 +97,15 @@ export default function AdminDashboard() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((inst, i) => {
-            const plan = (inst as any).plans;
-            const studentCount = usageCounts?.students[inst.id] ?? 0;
-            const teacherCount = usageCounts?.teachers[inst.id] ?? 0;
-            const isExpired = inst.plan_expires_at ? new Date(inst.plan_expires_at) < new Date() : false;
+          {filtered.map((inst: any, i: number) => {
+            const plan = inst.planId;
+            const usage = usageCounts?.find((u: any) => u.instituteId === inst._id) || { students: 0, teachers: 0 };
+            const studentCount = usage.students;
+            const teacherCount = usage.teachers;
+            const isExpired = inst.planExpiresAt ? new Date(inst.planExpiresAt) < new Date() : false;
 
             return (
-              <motion.div key={inst.id} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.05 }}
+              <motion.div key={inst._id} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.05 }}
                 className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
@@ -148,7 +118,7 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    {inst.is_approved ? (
+                    {inst.isApproved ? (
                       <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-success/10 text-success">
                         <CheckCircle className="w-3 h-3" /> Approved
                       </span>
@@ -157,10 +127,13 @@ export default function AdminDashboard() {
                         <button
                           onClick={async (e) => {
                             e.stopPropagation();
-                            const { error } = await supabase.from('institutes').update({ is_approved: true }).eq('id', inst.id);
-                            if (error) { toast.error(error.message); return; }
-                            toast.success(`${inst.name} approved`);
-                            qc.invalidateQueries({ queryKey: ['admin_institutes'] });
+                            try {
+                              await api.put(`/admin/institutes/${inst._id}/approve`, { isApproved: true });
+                              toast.success(`${inst.name} approved`);
+                              qc.invalidateQueries({ queryKey: ['admin_institutes'] });
+                            } catch (err: any) {
+                              toast.error(err.message);
+                            }
                           }}
                           className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-success/10 text-success hover:bg-success/20 transition-colors"
                         >
@@ -183,24 +156,24 @@ export default function AdminDashboard() {
                   <div className="bg-muted/50 rounded-lg p-2 text-center">
                     <p className="text-xs text-muted-foreground">Students</p>
                     <p className="text-sm font-bold text-foreground">
-                      {studentCount}{plan ? `/${plan.max_students}` : ''}
+                      {studentCount}{plan ? `/${plan.maxStudents}` : ''}
                     </p>
                     {plan && (
                       <div className="mt-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all ${studentCount >= plan.max_students ? 'bg-destructive' : 'bg-primary'}`}
-                          style={{ width: `${Math.min(100, (studentCount / plan.max_students) * 100)}%` }} />
+                        <div className={`h-full rounded-full transition-all ${studentCount >= plan.maxStudents ? 'bg-destructive' : 'bg-primary'}`}
+                          style={{ width: `${Math.min(100, (studentCount / plan.maxStudents) * 100)}%` }} />
                       </div>
                     )}
                   </div>
                   <div className="bg-muted/50 rounded-lg p-2 text-center">
                     <p className="text-xs text-muted-foreground">Teachers</p>
                     <p className="text-sm font-bold text-foreground">
-                      {teacherCount}{plan ? `/${plan.max_teachers}` : ''}
+                      {teacherCount}{plan ? `/${plan.maxTeachers}` : ''}
                     </p>
                     {plan && (
                       <div className="mt-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all ${teacherCount >= plan.max_teachers ? 'bg-destructive' : 'bg-primary'}`}
-                          style={{ width: `${Math.min(100, (teacherCount / plan.max_teachers) * 100)}%` }} />
+                        <div className={`h-full rounded-full transition-all ${teacherCount >= plan.maxTeachers ? 'bg-destructive' : 'bg-primary'}`}
+                          style={{ width: `${Math.min(100, (teacherCount / plan.maxTeachers) * 100)}%` }} />
                       </div>
                     )}
                   </div>
@@ -218,20 +191,20 @@ export default function AdminDashboard() {
                       className="text-xs px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
                       Change
                     </button>
-                    <button onClick={() => setHistoryInstId(inst.id)}
+                    <button onClick={() => setHistoryInstId(inst._id)}
                       className="text-xs px-2 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/80 transition-colors">
                       <History className="w-3 h-3" />
                     </button>
                   </div>
-                  {inst.plan_expires_at && (
+                  {inst.planExpiresAt && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Expires: {new Date(inst.plan_expires_at).toLocaleDateString()}
+                      Expires: {new Date(inst.planExpiresAt).toLocaleDateString()}
                     </p>
                   )}
                 </div>
 
                 <div className="mt-2 pt-2 border-t border-border text-xs text-muted-foreground">
-                  Created {new Date(inst.created_at).toLocaleDateString()}
+                  Created {new Date(inst.createdAt).toLocaleDateString()}
                 </div>
               </motion.div>
             );
@@ -251,49 +224,26 @@ export default function AdminDashboard() {
 /* ── Assign Plan Modal with payment tracking ── */
 function AssignPlanModal({ institute, plans, onClose }: { institute: any; plans: any[]; onClose: () => void }) {
   const qc = useQueryClient();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    planId: institute.plan_id ?? '',
+    planId: institute.planId?._id || '',
     amountPaid: '',
     paymentMode: 'cash',
     notes: '',
   });
 
-  const selectedPlan = plans.find(p => p.id === form.planId);
+  const selectedPlan = plans.find(p => p._id === form.planId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const planId = form.planId || null;
-      const plan = plans.find(p => p.id === planId);
-
-      // Update institute
-      const updates: any = { plan_id: planId };
-      if (planId && plan) {
-        updates.plan_started_at = new Date().toISOString();
-        updates.plan_expires_at = new Date(Date.now() + plan.max_days * 86400000).toISOString();
-      } else {
-        updates.plan_started_at = null;
-        updates.plan_expires_at = null;
-      }
-      const { error } = await supabase.from('institutes').update(updates).eq('id', institute.id);
-      if (error) throw error;
-
-      // Record history
-      const { error: histErr } = await supabase.from('plan_history').insert({
-        institute_id: institute.id,
-        plan_id: planId,
-        plan_name: plan?.name || 'No Plan',
-        amount_paid: parseFloat(form.amountPaid) || 0,
-        payment_mode: form.paymentMode,
-        started_at: updates.plan_started_at || new Date().toISOString(),
-        expires_at: updates.plan_expires_at,
-        changed_by: user?.id,
+      await api.put(`/admin/institutes/${institute._id}/plan`, {
+        planId: form.planId || null,
+        amountPaid: parseFloat(form.amountPaid) || 0,
+        paymentMode: form.paymentMode,
         notes: form.notes || null,
       });
-      if (histErr) throw histErr;
 
       toast.success('Plan updated');
       qc.invalidateQueries({ queryKey: ['admin_institutes'] });
@@ -325,15 +275,15 @@ function AssignPlanModal({ institute, plans, onClose }: { institute: any; plans:
             <select value={form.planId} onChange={e => setForm(p => ({ ...p, planId: e.target.value }))}
               className="w-full px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
               <option value="">No Plan</option>
-              {plans.map(p => <option key={p.id} value={p.id}>{p.name} — ₹{p.price} ({p.max_days} days)</option>)}
+              {plans.map(p => <option key={p._id} value={p._id}>{p.name} — ₹{p.price} ({p.maxDays} days)</option>)}
             </select>
           </div>
 
           {selectedPlan && (
             <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
-              <p>Max Students: <strong className="text-foreground">{selectedPlan.max_students}</strong></p>
-              <p>Max Teachers: <strong className="text-foreground">{selectedPlan.max_teachers}</strong></p>
-              <p>Validity: <strong className="text-foreground">{selectedPlan.max_days} days</strong></p>
+              <p>Max Students: <strong className="text-foreground">{selectedPlan.maxStudents}</strong></p>
+              <p>Max Teachers: <strong className="text-foreground">{selectedPlan.maxTeachers}</strong></p>
+              <p>Validity: <strong className="text-foreground">{selectedPlan.maxDays} days</strong></p>
               <p>Price: <strong className="text-foreground">₹{selectedPlan.price}</strong></p>
             </div>
           )}
@@ -372,15 +322,7 @@ function AssignPlanModal({ institute, plans, onClose }: { institute: any; plans:
 function PlanHistoryModal({ instituteId, onClose }: { instituteId: string; onClose: () => void }) {
   const { data: history, isLoading } = useQuery({
     queryKey: ['plan_history', instituteId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('plan_history')
-        .select('*')
-        .eq('institute_id', instituteId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => api.get(`/admin/institutes/${instituteId}/plan-history`),
   });
 
   return (
@@ -399,24 +341,24 @@ function PlanHistoryModal({ instituteId, onClose }: { instituteId: string; onClo
           <p className="text-sm text-muted-foreground text-center py-8">No plan changes recorded yet.</p>
         ) : (
           <div className="space-y-3">
-            {history.map(h => (
-              <div key={h.id} className="bg-muted/50 rounded-lg p-4">
+            {history.map((h: any) => (
+              <div key={h._id} className="bg-muted/50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-foreground">{h.plan_name}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(h.created_at).toLocaleDateString()}</span>
+                  <span className="text-sm font-semibold text-foreground">{h.planName}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(h.createdAt).toLocaleDateString()}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div>
                     <span className="text-muted-foreground">Paid</span>
-                    <p className="font-medium text-foreground">₹{Number(h.amount_paid).toLocaleString()}</p>
+                    <p className="font-medium text-foreground">₹{Number(h.amountPaid).toLocaleString()}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Mode</span>
-                    <p className="font-medium text-foreground capitalize">{h.payment_mode?.replace('_', ' ')}</p>
+                    <p className="font-medium text-foreground capitalize">{h.paymentMode?.replace('_', ' ')}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Expires</span>
-                    <p className="font-medium text-foreground">{h.expires_at ? new Date(h.expires_at).toLocaleDateString() : '—'}</p>
+                    <p className="font-medium text-foreground">{h.expiresAt ? new Date(h.expiresAt).toLocaleDateString() : '—'}</p>
                   </div>
                 </div>
                 {h.notes && <p className="text-xs text-muted-foreground mt-2 italic">{h.notes}</p>}
@@ -445,9 +387,7 @@ function AddInstituteModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await supabase.functions.invoke('create-institute', { body: form });
-      if (res.error) throw res.error;
-      if (res.data?.error) throw new Error(res.data.error);
+      await api.post('/admin/institutes', form);
       toast.success(`Institute "${form.instituteName}" created! Owner can login with ${form.ownerEmail}`);
       qc.invalidateQueries({ queryKey: ['admin_institutes'] });
       qc.invalidateQueries({ queryKey: ['admin_stats'] });
@@ -509,3 +449,4 @@ function FormField({ label, ...props }: { label: string } & React.InputHTMLAttri
     </div>
   );
 }
+

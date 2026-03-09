@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, GraduationCap, IndianRupee, TrendingUp, Layers, Loader2, CalendarIcon, CreditCard, History, AlertTriangle, X } from 'lucide-react';
+import { Users, GraduationCap, IndianRupee, TrendingUp, Layers, Loader2, CreditCard, History, AlertTriangle, X } from 'lucide-react';
 import { useDashboardStats, useStudents, useInstitute } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/api/client';
 
 export default function OwnerDashboard() {
   const { user } = useAuth();
@@ -17,10 +17,10 @@ export default function OwnerDashboard() {
 
   const feeStats = useMemo(() => {
     const all = students ?? [];
-    const totalGenerated = all.reduce((s, st) => s + (Number(st.total_fee) || 0), 0);
-    const totalReceived = all.reduce((s, st) => s + (Number(st.fee_paid) || 0), 0);
+    const totalGenerated = all.reduce((s: number, st: any) => s + (Number(st.totalFee) || 0), 0);
+    const totalReceived = all.reduce((s: number, st: any) => s + (Number(st.feePaid) || 0), 0);
     const pending = totalGenerated - totalReceived;
-    const pendingStudents = all.filter(s => s.fee_status !== 'paid' && (Number(s.total_fee) || 0) > 0);
+    const pendingStudents = all.filter((s: any) => s.feeStatus !== 'paid' && (Number(s.totalFee) || 0) > 0);
     return { totalGenerated, totalReceived, pending, pendingStudents };
   }, [students]);
 
@@ -28,7 +28,7 @@ export default function OwnerDashboard() {
     { label: 'Total Teachers', value: stats?.totalTeachers ?? 0, icon: Users, gradient: 'stat-gradient-1' },
     { label: 'Total Students', value: stats?.totalStudents ?? 0, icon: GraduationCap, gradient: 'stat-gradient-2' },
     { label: 'Active Batches', value: stats?.activeBatches ?? 0, icon: Layers, gradient: 'stat-gradient-3' },
-    { label: 'Fees Collected', value: `₹${(feeStats.totalReceived / 1000).toFixed(0)}k`, icon: IndianRupee, gradient: 'stat-gradient-4' },
+    { label: 'Fees Collected', value: `₹${((feeStats.totalReceived || 0) / 1000).toFixed(0)}k`, icon: IndianRupee, gradient: 'stat-gradient-4' },
   ];
 
   if (isLoading) {
@@ -45,15 +45,15 @@ export default function OwnerDashboard() {
           <div>
             <p className="font-semibold text-destructive">Your plan has expired!</p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Your <strong>{planLimits.planName}</strong> plan expired on {(institute as any)?.plan_expires_at ? new Date((institute as any).plan_expires_at).toLocaleDateString() : 'N/A'}.
+              Your <strong>{planLimits.planName}</strong> plan expired on {planLimits.planExpiresAt ? new Date(planLimits.planExpiresAt).toLocaleDateString() : 'N/A'}.
               You cannot add new students or teachers until your plan is renewed. Please contact the administrator.
             </p>
           </div>
         </motion.div>
       )}
 
-      {planLimits?.hasPlan && !planLimits.isExpired && (institute as any)?.plan_expires_at && (() => {
-        const daysLeft = Math.ceil((new Date((institute as any).plan_expires_at).getTime() - Date.now()) / 86400000);
+      {planLimits?.hasPlan && !planLimits.isExpired && planLimits.planExpiresAt && (() => {
+        const daysLeft = Math.ceil((new Date(planLimits.planExpiresAt).getTime() - Date.now()) / 86400000);
         if (daysLeft <= 7) {
           return (
             <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
@@ -117,9 +117,9 @@ export default function OwnerDashboard() {
             </div>
           </div>
 
-          {(institute as any)?.plan_expires_at && (
+          {planLimits.planExpiresAt && (
             <p className="text-xs text-muted-foreground mt-2">
-              Expires: {new Date((institute as any).plan_expires_at).toLocaleDateString()}
+              Expires: {new Date(planLimits.planExpiresAt).toLocaleDateString()}
             </p>
           )}
         </div>
@@ -164,20 +164,19 @@ export default function OwnerDashboard() {
           <div>
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Pending Collections ({feeStats.pendingStudents.length})</p>
             <div className="space-y-2">
-              {feeStats.pendingStudents.slice(0, 5).map((student) => {
-                const due = (Number(student.total_fee) || 0) - (Number(student.fee_paid) || 0);
+              {feeStats.pendingStudents.slice(0, 5).map((student: any) => {
+                const due = (Number(student.totalFee) || 0) - (Number(student.feePaid) || 0);
                 return (
-                  <div key={student.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/50">
+                  <div key={student._id} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/50">
                     <div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center">
                       <IndianRupee className="w-4 h-4 text-destructive" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{student.first_name} {student.last_name}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{student.firstName} {student.lastName}</p>
                       <p className="text-xs text-muted-foreground">₹{due.toLocaleString()} pending</p>
                     </div>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      student.fee_status === 'partial' ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive'
-                    }`}>{student.fee_status}</span>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${student.feeStatus === 'partial' ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive'
+                      }`}>{student.feeStatus}</span>
                   </div>
                 );
               })}
@@ -200,15 +199,7 @@ export default function OwnerDashboard() {
 function PlanHistoryModal({ instituteId, onClose }: { instituteId: string; onClose: () => void }) {
   const { data: history, isLoading } = useQuery({
     queryKey: ['plan_history', instituteId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('plan_history')
-        .select('*')
-        .eq('institute_id', instituteId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => api.get(`/admin/institutes/${instituteId}/plan-history`),
   });
 
   return (
@@ -227,24 +218,24 @@ function PlanHistoryModal({ instituteId, onClose }: { instituteId: string; onClo
           <p className="text-sm text-muted-foreground text-center py-8">No plan changes recorded yet.</p>
         ) : (
           <div className="space-y-3">
-            {history.map(h => (
-              <div key={h.id} className="bg-muted/50 rounded-lg p-4">
+            {history.map((h: any) => (
+              <div key={h._id} className="bg-muted/50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-foreground">{h.plan_name}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(h.created_at).toLocaleDateString()}</span>
+                  <span className="text-sm font-semibold text-foreground">{h.planName}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(h.createdAt).toLocaleDateString()}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div>
                     <span className="text-muted-foreground">Paid</span>
-                    <p className="font-medium text-foreground">₹{Number(h.amount_paid).toLocaleString()}</p>
+                    <p className="font-medium text-foreground">₹{Number(h.amountPaid).toLocaleString()}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Mode</span>
-                    <p className="font-medium text-foreground capitalize">{h.payment_mode?.replace('_', ' ')}</p>
+                    <p className="font-medium text-foreground capitalize">{h.paymentMode?.replace('_', ' ')}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Expires</span>
-                    <p className="font-medium text-foreground">{h.expires_at ? new Date(h.expires_at).toLocaleDateString() : '—'}</p>
+                    <p className="font-medium text-foreground">{h.expiresAt ? new Date(h.expiresAt).toLocaleDateString() : '—'}</p>
                   </div>
                 </div>
                 {h.notes && <p className="text-xs text-muted-foreground mt-2 italic">{h.notes}</p>}
@@ -256,3 +247,4 @@ function PlanHistoryModal({ instituteId, onClose }: { instituteId: string; onClo
     </motion.div>
   );
 }
+

@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
+import { api } from '@/api/client';
 import { IndianRupee, Search, Loader2 } from 'lucide-react';
 
 export default function AdminFeesPage() {
@@ -9,41 +8,44 @@ export default function AdminFeesPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const { data: institutes } = useQuery({
-    queryKey: ['admin_institutes_list'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('institutes').select('id, name').order('name');
-      if (error) throw error;
-      return data;
-    },
-  });
+  const [institutes, setInstitutes] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: payments, isLoading } = useQuery({
-    queryKey: ['admin_all_fees', instituteFilter, dateFrom, dateTo],
-    queryFn: async () => {
-      let query = supabase
-        .from('fee_payments')
-        .select('*, students(first_name, last_name, student_id, institute_id, institutes(name))')
-        .order('payment_date', { ascending: false });
-      if (dateFrom) query = query.gte('payment_date', dateFrom);
-      if (dateTo) query = query.lte('payment_date', dateTo);
-      const { data, error } = await query;
-      if (error) throw error;
-      // Filter by institute client-side since it's a nested relation
-      if (instituteFilter) {
-        return (data ?? []).filter((p: any) => p.students?.institute_id === instituteFilter);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const [instRes, feesRes] = await Promise.all([
+          api.get('/institutes'),
+          api.get('/fees')
+        ]);
+        setInstitutes(instRes);
+        setPayments(feesRes);
+      } catch (err) {
+        console.error('Failed to fetch admin fees', err);
+      } finally {
+        setIsLoading(false);
       }
-      return data;
-    },
-  });
+    };
+    fetchData();
+  }, []);
 
-  const filtered = (payments ?? []).filter(p => {
-    const s = (p as any).students;
-    const text = `${s?.first_name ?? ''} ${s?.last_name ?? ''} ${s?.student_id ?? ''} ${p.receipt_no ?? ''}`;
+  const filtered = payments.filter(p => {
+    const s = p.studentId;
+    if (instituteFilter && s?.instituteId?._id !== instituteFilter) return false;
+
+    if (dateFrom || dateTo) {
+      const pDate = p.paymentDate ? new Date(p.paymentDate) : new Date(p.createdAt);
+      if (dateFrom && new Date(pDate) < new Date(dateFrom)) return false;
+      if (dateTo && new Date(pDate) > new Date(dateTo)) return false;
+    }
+
+    const text = `${s?.firstName ?? ''} ${s?.lastName ?? ''} ${s?.studentId ?? ''} ${p.referenceNo ?? ''}`;
     return text.toLowerCase().includes(search.toLowerCase());
   });
 
-  const totalAmount = filtered.reduce((sum, p) => sum + Number(p.amount), 0);
+  const totalAmount = filtered.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -61,7 +63,7 @@ export default function AdminFeesPage() {
         <select value={instituteFilter} onChange={e => setInstituteFilter(e.target.value)}
           className="px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
           <option value="">All Institutes</option>
-          {(institutes ?? []).map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+          {institutes.map(i => <option key={i._id} value={i._id}>{i.name}</option>)}
         </select>
         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
           className="px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
@@ -104,20 +106,20 @@ export default function AdminFeesPage() {
               </thead>
               <tbody>
                 {filtered.map(p => {
-                  const s = (p as any).students;
+                  const s = p.studentId;
                   return (
-                    <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                    <tr key={p._id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-foreground">{s?.first_name} {s?.last_name}</p>
-                        <p className="text-xs text-muted-foreground">{s?.student_id}</p>
+                        <p className="font-medium text-foreground">{s?.firstName} {s?.lastName}</p>
+                        <p className="text-xs text-muted-foreground">{s?.studentId}</p>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{s?.institutes?.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{s?.instituteId?.name ?? '—'}</td>
                       <td className="px-4 py-3 font-medium text-foreground">₹{Number(p.amount).toLocaleString()}</td>
                       <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground capitalize">{p.payment_mode}</span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground capitalize">{p.paymentMode}</span>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{p.receipt_no ?? '—'}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{new Date(p.payment_date).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{p.referenceNo ?? '—'}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{new Date(p.paymentDate || p.createdAt).toLocaleDateString()}</td>
                     </tr>
                   );
                 })}

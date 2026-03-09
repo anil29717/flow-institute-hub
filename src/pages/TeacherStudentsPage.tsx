@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Search, GraduationCap, X, Users } from 'lucide-react';
 
@@ -10,35 +10,16 @@ function useTeacherStudents() {
   return useQuery({
     queryKey: ['teacher_students', user?.id],
     queryFn: async () => {
-      if (!user?.profileId) return { batches: [], students: [] };
+      if (!user?.id) return { batches: [], students: [] };
 
-      const { data: teacher } = await supabase
-        .from('teachers')
-        .select('id')
-        .eq('profile_id', user.profileId)
-        .single();
+      const [batches, students] = await Promise.all([
+        api.get('/batches').catch(() => []),
+        api.get('/students').catch(() => [])
+      ]);
 
-      if (!teacher) return { batches: [], students: [] };
-
-      const { data: batches } = await supabase
-        .from('batches')
-        .select('*, courses(name)')
-        .eq('teacher_id', teacher.id);
-
-      const batchIds = (batches ?? []).map(b => b.id);
-      let students: any[] = [];
-      if (batchIds.length > 0) {
-        const { data } = await supabase
-          .from('students')
-          .select('*, batches(name), courses(name)')
-          .in('batch_id', batchIds)
-          .eq('is_active', true);
-        students = data ?? [];
-      }
-
-      return { batches: batches ?? [], students };
+      return { batches: batches || [], students: students || [] };
     },
-    enabled: !!user?.profileId,
+    enabled: !!user?.id,
   });
 }
 
@@ -48,8 +29,8 @@ export default function TeacherStudentsPage() {
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
 
   const filtered = useMemo(() => {
-    return (data?.students ?? []).filter(s =>
-      `${s.first_name} ${s.last_name} ${s.student_id}`.toLowerCase().includes(search.toLowerCase())
+    return (data?.students ?? []).filter((s: any) =>
+      `${s.firstName} ${s.lastName} ${s.studentId}`.toLowerCase().includes(search.toLowerCase())
     );
   }, [data?.students, search]);
 
@@ -90,25 +71,25 @@ export default function TeacherStudentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((student, i) => (
-                  <motion.tr key={student.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
+                {filtered.map((student: any, i: number) => (
+                  <motion.tr key={student._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
                     className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
                     onClick={() => setSelectedStudent(student)}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-xs">
-                          {student.first_name[0]}{student.last_name[0]}
+                          {student.firstName[0]}{student.lastName[0]}
                         </div>
                         <div>
-                          <p className="font-medium text-foreground">{student.first_name} {student.last_name}</p>
-                          <p className="text-xs text-muted-foreground sm:hidden">{student.student_id}</p>
+                          <p className="font-medium text-foreground">{student.firstName} {student.lastName}</p>
+                          <p className="text-xs text-muted-foreground sm:hidden">{student.studentId}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground font-mono text-xs hidden sm:table-cell">{student.student_id}</td>
-                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{student.batches?.name || '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground font-mono text-xs hidden sm:table-cell">{student.studentId}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{student.batchId?.name || '—'}</td>
                     <td className="px-4 py-3 text-muted-foreground">{student.phone || '—'}</td>
-                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{student.guardian_name || '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{student.guardianName || '—'}</td>
                   </motion.tr>
                 ))}
               </tbody>
@@ -131,18 +112,18 @@ function StudentDetailModal({ student, onClose }: { student: any; onClose: () =>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
         className="bg-card rounded-xl border border-border p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-display font-bold text-foreground">{student.first_name} {student.last_name}</h2>
+          <h2 className="text-lg font-display font-bold text-foreground">{student.firstName} {student.lastName}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="space-y-3">
-          <InfoRow label="Student ID" value={student.student_id} />
+          <InfoRow label="Student ID" value={student.studentId} />
           <InfoRow label="Phone" value={student.phone || '—'} />
-          <InfoRow label="Guardian" value={student.guardian_name || '—'} />
-          <InfoRow label="Guardian Phone" value={student.guardian_phone || '—'} />
-          <InfoRow label="Batch" value={student.batches?.name || '—'} />
+          <InfoRow label="Guardian" value={student.guardianName || '—'} />
+          <InfoRow label="Guardian Phone" value={student.guardianPhone || '—'} />
+          <InfoRow label="Batch" value={student.batchId?.name || '—'} />
           <InfoRow label="School" value={student.school || '—'} />
-          <InfoRow label="Class" value={student.class || '—'} />
+          <InfoRow label="Class" value={student.standard || student.class || '—'} />
         </div>
       </motion.div>
     </motion.div>

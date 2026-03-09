@@ -33,13 +33,13 @@ export default function LeavesPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {(leaves ?? []).map((leave, i) => {
-            const teacherProfile = (leave as any).teachers?.profiles;
-            const teacherName = teacherProfile ? `${teacherProfile.first_name} ${teacherProfile.last_name}` : 'Unknown';
+          {(leaves ?? []).map((leave: any, i: number) => {
+            const teacherUser = leave.teacherId?.userId;
+            const teacherName = teacherUser ? `${teacherUser.firstName} ${teacherUser.lastName}` : 'Unknown';
             const initials = teacherName.split(' ').map((n: string) => n[0]).join('');
 
             return (
-              <motion.div key={leave.id} initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.08 }}
+              <motion.div key={leave._id} initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.08 }}
                 className="bg-card rounded-xl border border-border p-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -49,9 +49,9 @@ export default function LeavesPage() {
                     <div>
                       <p className="font-semibold text-foreground">{teacherName}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${typeColors[leave.leave_type] ?? ''}`}>{leave.leave_type}</span>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${typeColors[leave.leaveType] ?? ''}`}>{leave.leaveType}</span>
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Calendar className="w-3 h-3" /> {leave.start_date} → {leave.end_date}
+                          <Calendar className="w-3 h-3" /> {new Date(leave.startDate).toLocaleDateString()} → {new Date(leave.endDate).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
@@ -60,11 +60,11 @@ export default function LeavesPage() {
                     <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${statusColors[leave.status] ?? ''}`}>{leave.status}</span>
                     {leave.status === 'pending' && (
                       <>
-                        <button onClick={() => updateStatus.mutate({ id: leave.id, status: 'approved' })}
+                        <button onClick={() => updateStatus.mutate({ id: leave._id, status: 'approved' })}
                           className="w-8 h-8 rounded-lg bg-success/10 hover:bg-success/20 flex items-center justify-center text-success transition-colors">
                           <Check className="w-4 h-4" />
                         </button>
-                        <button onClick={() => updateStatus.mutate({ id: leave.id, status: 'rejected' })}
+                        <button onClick={() => updateStatus.mutate({ id: leave._id, status: 'rejected' })}
                           className="w-8 h-8 rounded-lg bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center text-destructive transition-colors">
                           <X className="w-4 h-4" />
                         </button>

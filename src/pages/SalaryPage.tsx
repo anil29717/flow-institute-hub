@@ -1,60 +1,68 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTeachers } from '@/hooks/useSupabaseData';
-import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { IndianRupee, Loader2, X, Search, Plus, Clock, Users } from 'lucide-react';
+import { api } from '@/api/client';
+import {
+  IndianRupee,
+  Search,
+  Plus,
+  ArrowUpRight,
+  Loader2,
+  Calendar,
+  Users,
+  History,
+  X,
+  CheckCircle2,
+  Clock
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { useTeachers } from '@/hooks/useSupabaseData';
+import { useAuth } from '@/contexts/AuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+// --- Hooks ---
 function useSalaryPayments() {
   return useQuery({
     queryKey: ['salary_payments'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('salary_payments')
-        .select('*, teachers(*, profiles(first_name, last_name))')
-        .order('payment_date', { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => api.get('/salaries'),
   });
 }
 
 function useAddSalaryPayment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payment: { teacher_id: string; amount: number; payment_mode: string; payment_date: string; period_label?: string; notes?: string }) => {
-      const { data, error } = await supabase.from('salary_payments').insert(payment).select().single();
-      if (error) throw error;
-      return data;
-    },
+    mutationFn: (data: any) => api.post('/salaries', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['salary_payments'] });
-      toast.success('Salary payment recorded');
+      toast.success('Salary payment recorded successfully');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to record payment');
+    }
   });
 }
 
 export default function SalaryPage() {
+  const { user } = useAuth();
   const { data: teachers, isLoading: teachersLoading } = useTeachers();
   const { data: payments, isLoading: paymentsLoading } = useSalaryPayments();
-  const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
-  const [showPayForm, setShowPayForm] = useState(false);
+  const addPayment = useAddSalaryPayment();
+
   const [search, setSearch] = useState('');
+  const [showPayForm, setShowPayForm] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
 
   const isLoading = teachersLoading || paymentsLoading;
 
   const totalPaid = useMemo(() => {
-    return (payments ?? []).reduce((s, p) => s + Number(p.amount), 0);
+    return (payments ?? []).reduce((s: number, p: any) => s + Number(p.amount), 0);
   }, [payments]);
 
   const teacherList = useMemo(() => {
-    return (teachers ?? []).filter(t => {
-      const p = (t as any).profiles;
+    return (teachers ?? []).filter((t: any) => {
+      const p = t.userId;
       if (!p) return false;
-      return `${p.first_name} ${p.last_name}`.toLowerCase().includes(search.toLowerCase());
+      return `${p.firstName} ${p.lastName}`.toLowerCase().includes(search.toLowerCase());
     });
   }, [teachers, search]);
 
@@ -101,8 +109,8 @@ export default function SalaryPage() {
           <div>
             <p className="text-sm text-muted-foreground">Payments This Month</p>
             <p className="text-xl font-display font-bold text-foreground">
-              {(payments ?? []).filter(p => {
-                const d = new Date(p.payment_date);
+              {(payments ?? []).filter((p: any) => {
+                const d = new Date(p.paymentDate);
                 const now = new Date();
                 return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
               }).length}
@@ -133,35 +141,33 @@ export default function SalaryPage() {
               </tr>
             </thead>
             <tbody>
-              {teacherList.map((teacher, i) => {
-                const p = (teacher as any).profiles;
-                const teacherPayments = (payments ?? []).filter(pay => pay.teacher_id === teacher.id);
-                const totalTeacherPaid = teacherPayments.reduce((s: number, pay: any) => s + Number(pay.amount), 0);
+              {teacherList.map((teacher: any, i: number) => {
+                const p = teacher.userId;
                 return (
-                  <motion.tr key={teacher.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
+                  <motion.tr key={teacher.id || teacher._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
                     className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                          {p?.first_name?.[0]}{p?.last_name?.[0]}
+                          {p?.firstName?.[0]}{p?.lastName?.[0]}
                         </div>
                         <div>
-                          <p className="font-medium text-foreground">{p?.first_name} {p?.last_name}</p>
-                          <p className="text-xs text-muted-foreground">{teacher.employee_id}</p>
+                          <p className="font-medium text-foreground">{p?.firstName} {p?.lastName}</p>
+                          <p className="text-xs text-muted-foreground">{teacher.employeeId}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-medium text-foreground">₹{Number(teacher.salary_amount || 0).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{salaryTypeLabel[teacher.salary_type] || 'Per Month'}</td>
-                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{freqLabel[teacher.payment_frequency] || 'Monthly'}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">₹{Number(teacher.salaryAmount || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{salaryTypeLabel[teacher.salaryType] || 'Per Month'}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{freqLabel[teacher.paymentFrequency] || 'Monthly'}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button onClick={() => { setSelectedTeacher(teacher); setShowPayForm(true); }}
-                          className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity">
+                          className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity font-display">
                           Pay
                         </button>
                         <button onClick={() => setSelectedTeacher(teacher)}
-                          className="px-3 py-1.5 rounded-md border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors">
+                          className="px-3 py-1.5 rounded-md border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors font-display">
                           History
                         </button>
                       </div>
@@ -195,14 +201,14 @@ export default function SalaryPage() {
               </thead>
               <tbody>
                 {(payments ?? []).slice(0, 20).map((p: any) => {
-                  const prof = p.teachers?.profiles;
+                  const prof = p.teacherId?.userId;
                   return (
-                    <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-medium text-foreground">{prof?.first_name} {prof?.last_name}</td>
+                    <tr key={p.id || p._id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3 font-medium text-foreground">{prof?.firstName} {prof?.lastName}</td>
                       <td className="px-4 py-3 text-success font-medium">₹{Number(p.amount).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-muted-foreground capitalize">{p.payment_mode.replace('_', ' ')}</td>
-                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{p.period_label || '—'}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{p.payment_date}</td>
+                      <td className="px-4 py-3 text-muted-foreground capitalize">{p.paymentMode.replace('_', ' ')}</td>
+                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{p.month} {p.year}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{new Date(p.paymentDate).toLocaleDateString()}</td>
                     </tr>
                   );
                 })}
@@ -217,7 +223,7 @@ export default function SalaryPage() {
           <PaySalaryModal teacher={selectedTeacher} onClose={() => { setSelectedTeacher(null); setShowPayForm(false); }} />
         )}
         {selectedTeacher && !showPayForm && (
-          <PaymentHistoryModal teacher={selectedTeacher} payments={(payments ?? []).filter(p => p.teacher_id === selectedTeacher.id)} onClose={() => setSelectedTeacher(null)} />
+          <PaymentHistoryModal teacher={selectedTeacher} payments={(payments ?? []).filter((p: any) => p.teacherId?._id === selectedTeacher._id)} onClose={() => setSelectedTeacher(null)} />
         )}
       </AnimatePresence>
     </div>
@@ -226,12 +232,13 @@ export default function SalaryPage() {
 
 function PaySalaryModal({ teacher, onClose }: { teacher: any; onClose: () => void }) {
   const addPayment = useAddSalaryPayment();
-  const p = teacher.profiles;
+  const p = teacher.userId;
   const [form, setForm] = useState({
-    amount: String(teacher.salary_amount || ''),
-    payment_mode: 'bank_transfer',
-    payment_date: new Date().toISOString().split('T')[0],
-    period_label: '',
+    amount: String(teacher.salaryAmount || ''),
+    paymentMode: 'bank_transfer',
+    paymentDate: new Date().toISOString().split('T')[0],
+    month: new Date().toLocaleString('default', { month: 'long' }),
+    year: String(new Date().getFullYear()),
     notes: '',
   });
 
@@ -240,7 +247,15 @@ function PaySalaryModal({ teacher, onClose }: { teacher: any; onClose: () => voi
     const amount = parseFloat(form.amount);
     if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return; }
     addPayment.mutate(
-      { teacher_id: teacher.id, amount, payment_mode: form.payment_mode, payment_date: form.payment_date, period_label: form.period_label || undefined, notes: form.notes || undefined },
+      {
+        teacherId: teacher._id,
+        amount,
+        paymentMode: form.paymentMode,
+        paymentDate: form.paymentDate,
+        month: form.month,
+        year: parseInt(form.year),
+        notes: form.notes || undefined
+      },
       { onSuccess: onClose }
     );
   };
@@ -253,7 +268,7 @@ function PaySalaryModal({ teacher, onClose }: { teacher: any; onClose: () => voi
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-lg font-display font-bold text-foreground">Pay Salary</h2>
-            <p className="text-sm text-muted-foreground">{p?.first_name} {p?.last_name} · {teacher.employee_id}</p>
+            <p className="text-sm text-muted-foreground">{p?.firstName} {p?.lastName} · {teacher.employeeId}</p>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
@@ -267,7 +282,7 @@ function PaySalaryModal({ teacher, onClose }: { teacher: any; onClose: () => voi
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-foreground mb-1 block">Payment Mode</label>
-              <Select value={form.payment_mode} onValueChange={v => setForm(f => ({ ...f, payment_mode: v }))}>
+              <Select value={form.paymentMode} onValueChange={v => setForm(f => ({ ...f, paymentMode: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cash">Cash</SelectItem>
@@ -279,14 +294,28 @@ function PaySalaryModal({ teacher, onClose }: { teacher: any; onClose: () => voi
             </div>
             <div>
               <label className="text-xs font-medium text-foreground mb-1 block">Date</label>
-              <input type="date" value={form.payment_date} onChange={e => setForm(f => ({ ...f, payment_date: e.target.value }))}
+              <input type="date" value={form.paymentDate} onChange={e => setForm(f => ({ ...f, paymentDate: e.target.value }))}
                 className="w-full px-3 py-2 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           </div>
-          <div>
-            <label className="text-xs font-medium text-foreground mb-1 block">Period (e.g. "Feb 2026")</label>
-            <input value={form.period_label} onChange={e => setForm(f => ({ ...f, period_label: e.target.value }))} placeholder="Optional"
-              className="w-full px-3 py-2 rounded-lg border border-input bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-foreground mb-1 block">Month</label>
+              <Select value={form.month} onValueChange={v => setForm(f => ({ ...f, month: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                  ].map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-foreground mb-1 block">Year</label>
+              <input type="number" value={form.year} onChange={e => setForm(f => ({ ...f, year: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
           </div>
           <div>
             <label className="text-xs font-medium text-foreground mb-1 block">Notes</label>
@@ -294,7 +323,7 @@ function PaySalaryModal({ teacher, onClose }: { teacher: any; onClose: () => voi
               className="w-full px-3 py-2 rounded-lg border border-input bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
           <button type="submit" disabled={addPayment.isPending}
-            className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
+            className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 font-display">
             {addPayment.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
             Record Payment
           </button>
@@ -305,7 +334,7 @@ function PaySalaryModal({ teacher, onClose }: { teacher: any; onClose: () => voi
 }
 
 function PaymentHistoryModal({ teacher, payments, onClose }: { teacher: any; payments: any[]; onClose: () => void }) {
-  const p = teacher.profiles;
+  const p = teacher.userId;
   const totalPaid = payments.reduce((s, pay) => s + Number(pay.amount), 0);
 
   return (
@@ -316,7 +345,7 @@ function PaymentHistoryModal({ teacher, payments, onClose }: { teacher: any; pay
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-lg font-display font-bold text-foreground">Payment History</h2>
-            <p className="text-sm text-muted-foreground">{p?.first_name} {p?.last_name} · Total Paid: <span className="text-success font-medium">₹{totalPaid.toLocaleString()}</span></p>
+            <p className="text-sm text-muted-foreground">{p?.firstName} {p?.lastName} · Total Paid: <span className="text-success font-medium">₹{totalPaid.toLocaleString()}</span></p>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
@@ -325,11 +354,11 @@ function PaymentHistoryModal({ teacher, payments, onClose }: { teacher: any; pay
           <p className="text-sm text-muted-foreground text-center py-6">No payments recorded yet.</p>
         ) : (
           <div className="space-y-2">
-            {payments.map(pay => (
-              <div key={pay.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
+            {payments.map((pay: any) => (
+              <div key={pay.id || pay._id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
                 <div>
                   <p className="text-sm font-medium text-foreground">₹{Number(pay.amount).toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">{pay.payment_date} · <span className="capitalize">{pay.payment_mode.replace('_', ' ')}</span>{pay.period_label ? ` · ${pay.period_label}` : ''}</p>
+                  <p className="text-xs text-muted-foreground">{new Date(pay.paymentDate).toLocaleDateString()} · <span className="capitalize">{pay.paymentMode.replace('_', ' ')}</span>{pay.month ? ` · ${pay.month} ${pay.year}` : ''}</p>
                 </div>
                 {pay.notes && <p className="text-xs text-muted-foreground max-w-[120px] truncate">{pay.notes}</p>}
               </div>

@@ -24,7 +24,7 @@ interface Props {
 }
 
 export default function CreateTestDialog({ open, onOpenChange }: Props) {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const { data: batches } = useBatches();
   const { data: students } = useStudents();
   const createTest = useCreateTest();
@@ -34,14 +34,15 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
   const [customSubject, setCustomSubject] = useState('');
   const [testDate, setTestDate] = useState('');
   const [testTime, setTestTime] = useState('');
+  const [totalMarks, setTotalMarks] = useState('100');
   const [selectedBatches, setSelectedBatches] = useState<string[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [subjectPopoverOpen, setSubjectPopoverOpen] = useState(false);
 
-  const filteredStudents = students?.filter((s: any) => selectedBatches.includes(s.batch_id)) ?? [];
+  const filteredStudents = students?.filter((s: any) => selectedBatches.includes(s.batchId)) ?? [];
 
   useEffect(() => {
-    setSelectedStudents(filteredStudents.map((s: any) => s.id));
+    setSelectedStudents(filteredStudents.map((s: any) => s._id));
   }, [selectedBatches.join(','), students]);
 
   const toggleSubject = (sub: string) => {
@@ -68,33 +69,25 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
     setSelectedStudents(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   };
 
-  const selectAll = () => setSelectedStudents(filteredStudents.map((s: any) => s.id));
+  const selectAll = () => setSelectedStudents(filteredStudents.map((s: any) => s._id));
   const deselectAll = () => setSelectedStudents([]);
 
   const handleSubmit = () => {
     if (!name || !selectedSubjects.length || !testDate || !selectedBatches.length || !selectedStudents.length) return;
 
-    const studentEntries = selectedStudents.map(sid => {
-      const student = students?.find((s: any) => s.id === sid);
-      return { student_id: sid, batch_id: student?.batch_id ?? selectedBatches[0] };
-    });
-
     createTest.mutate({
-      test: {
-        name,
-        subject: selectedSubjects.join(', '),
-        test_date: testDate,
-        test_time: testTime || undefined,
-        institute_id: user?.instituteId ?? undefined,
-        created_by: session?.user?.id ?? '',
-      },
+      name,
+      subject: selectedSubjects.join(', '),
+      testDate,
+      testTime: testTime || undefined,
+      totalMarks: parseInt(totalMarks),
       batchIds: selectedBatches,
-      studentIds: studentEntries,
+      studentIds: selectedStudents,
     }, {
       onSuccess: () => {
         onOpenChange(false);
         setName(''); setSelectedSubjects([]); setTestDate(''); setTestTime('');
-        setSelectedBatches([]); setSelectedStudents([]);
+        setTotalMarks('100'); setSelectedBatches([]); setSelectedStudents([]);
       },
     });
   };
@@ -156,7 +149,7 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Date *</Label>
               <Input type="date" value={testDate} onChange={e => setTestDate(e.target.value)} />
@@ -165,13 +158,17 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
               <Label>Time</Label>
               <Input type="time" value={testTime} onChange={e => setTestTime(e.target.value)} />
             </div>
+            <div className="space-y-2">
+              <Label>Total Marks</Label>
+              <Input type="number" value={totalMarks} onChange={e => setTotalMarks(e.target.value)} />
+            </div>
           </div>
 
           <div className="space-y-2">
             <Label>Select Batches *</Label>
             <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/30">
               {batches?.map((b: any) => (
-                <Badge key={b.id} variant={selectedBatches.includes(b.id) ? 'default' : 'outline'} className="cursor-pointer" onClick={() => toggleBatch(b.id)}>
+                <Badge key={b._id} variant={selectedBatches.includes(b._id) ? 'default' : 'outline'} className="cursor-pointer" onClick={() => toggleBatch(b._id)}>
                   {b.name}
                 </Badge>
               ))}
@@ -190,10 +187,10 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
               </div>
               <div className="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-1">
                 {filteredStudents.map((s: any) => (
-                  <label key={s.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
-                    <Checkbox checked={selectedStudents.includes(s.id)} onCheckedChange={() => toggleStudent(s.id)} />
-                    <span>{s.first_name} {s.last_name}</span>
-                    <Badge variant="secondary" className="ml-auto text-xs">{s.batches?.name}</Badge>
+                  <label key={s._id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
+                    <Checkbox checked={selectedStudents.includes(s._id)} onCheckedChange={() => toggleStudent(s._id)} />
+                    <span>{s.firstName} {s.lastName}</span>
+                    <Badge variant="secondary" className="ml-auto text-xs">{s.batchId?.name}</Badge>
                   </label>
                 ))}
                 {!filteredStudents.length && <p className="text-sm text-muted-foreground text-center py-2">No students in selected batches</p>}
@@ -209,3 +206,4 @@ export default function CreateTestDialog({ open, onOpenChange }: Props) {
     </Dialog>
   );
 }
+

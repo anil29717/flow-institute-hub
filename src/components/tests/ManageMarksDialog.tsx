@@ -16,59 +16,59 @@ export default function ManageMarksDialog({ testId, onClose }: Props) {
   const { data: tests } = useTests();
   const { data: testStudents, isLoading: loadingStudents } = useTestStudents(testId);
   const { data: existingMarks, isLoading: loadingMarks } = useMarks(testId);
-  const upsertMarks = useUpsertMarks();
+  const upsertMarks = useUpsertMarks(testId);
 
-  const test = tests?.find((t: any) => t.id === testId);
+  const test = tests?.find((t: any) => t._id === testId);
   const subjects: string[] = test?.subject ? test.subject.split(', ').map((s: string) => s.trim()).filter(Boolean) : [];
 
-  // key: `${student_id}__${subject}`
+  // key: `${studentId}__${subject}`
   const [marksMap, setMarksMap] = useState<Record<string, { obtained: string; total: string }>>({});
 
   useEffect(() => {
     if (!testStudents || !subjects.length) return;
     const map: Record<string, { obtained: string; total: string }> = {};
-    testStudents.forEach((ts: any) => {
+    testStudents.forEach((student: any) => {
       subjects.forEach(sub => {
-        const key = `${ts.student_id}__${sub}`;
-        const existing = existingMarks?.find((m: any) => m.student_id === ts.student_id && m.subject === sub);
+        const key = `${student._id}__${sub}`;
+        // Note: Our current backend Mark model might not support subject-wise marks yet.
+        // For now, we'll try to find by studentId. If we need per-subject, we must update backend.
+        const existing = existingMarks?.find((m: any) => m.studentId?._id === student._id && m.subject === sub);
         map[key] = {
-          obtained: existing?.marks_obtained?.toString() ?? '',
-          total: existing?.total_marks?.toString() ?? '100',
+          obtained: existing?.marksObtained?.toString() ?? '',
+          total: existing?.totalMarks?.toString() ?? (test?.totalMarks?.toString() || '100'),
         };
       });
     });
     setMarksMap(map);
-  }, [testStudents, existingMarks, test?.subject]);
+  }, [testStudents, existingMarks, test?.subject, test?.totalMarks]);
 
   const handleSave = () => {
     if (!testId || !testStudents) return;
 
     const entries: any[] = [];
-    testStudents.forEach((ts: any) => {
+    testStudents.forEach((student: any) => {
       subjects.forEach(sub => {
-        const key = `${ts.student_id}__${sub}`;
+        const key = `${student._id}__${sub}`;
         const val = marksMap[key];
         if (val?.obtained !== '' && val?.obtained !== undefined) {
           entries.push({
-            test_id: testId,
-            student_id: ts.student_id,
-            batch_id: ts.batch_id,
+            studentId: student._id,
             subject: sub,
-            marks_obtained: Number(val.obtained),
-            total_marks: Number(val.total || 100),
+            marksObtained: Number(val.obtained),
+            totalMarks: Number(val.total || test?.totalMarks || 100),
           });
         }
       });
     });
 
-    if (entries.length) upsertMarks.mutate(entries);
+    if (entries.length) upsertMarks.mutate(entries, { onSuccess: onClose });
   };
 
   const isLoading = loadingStudents || loadingMarks;
 
   return (
     <Dialog open={!!testId} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Manage Marks{test ? ` — ${test.name}` : ''}</DialogTitle>
         </DialogHeader>
@@ -90,19 +90,19 @@ export default function ManageMarksDialog({ testId, onClose }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {testStudents.map((ts: any) =>
+                {testStudents.map((student: any) =>
                   subjects.map((sub, si) => {
-                    const key = `${ts.student_id}__${sub}`;
+                    const key = `${student._id}__${sub}`;
                     return (
                       <TableRow key={key}>
                         {si === 0 ? (
                           <>
                             <TableCell rowSpan={subjects.length} className="font-medium align-top">
-                              {ts.students?.first_name} {ts.students?.last_name}
-                              <span className="text-xs text-muted-foreground ml-1">({ts.students?.student_id})</span>
+                              {student.firstName} {student.lastName}
+                              <span className="text-xs text-muted-foreground ml-1">({student.studentId})</span>
                             </TableCell>
                             <TableCell rowSpan={subjects.length} className="align-top">
-                              <Badge variant="secondary">{ts.batches?.name}</Badge>
+                              <Badge variant="secondary">{student.batchId?.name || 'Assigned'}</Badge>
                             </TableCell>
                           </>
                         ) : null}
@@ -148,3 +148,4 @@ export default function ManageMarksDialog({ testId, onClose }: Props) {
     </Dialog>
   );
 }
+

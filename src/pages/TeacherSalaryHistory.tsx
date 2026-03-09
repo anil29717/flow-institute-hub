@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, IndianRupee, Clock, Wallet } from 'lucide-react';
 
@@ -10,30 +10,18 @@ function useTeacherSalary() {
   return useQuery({
     queryKey: ['teacher_salary', user?.id],
     queryFn: async () => {
-      if (!user?.profileId) return null;
+      if (!user?.id) return null;
 
-      const { data: teacher } = await supabase
-        .from('teachers')
-        .select('*')
-        .eq('profile_id', user.profileId)
-        .single();
+      const [teacherData, payments] = await Promise.all([
+        api.get('/teachers/me').catch(() => null),
+        api.get('/salaries').catch(() => [])
+      ]);
 
-      if (!teacher) return null;
-
-      const { data: payments } = await supabase
-        .from('salary_payments')
-        .select('*')
-        .eq('teacher_id', teacher.id)
-        .order('payment_date', { ascending: false });
-
-      return { teacher, payments: payments ?? [] };
+      return { teacher: teacherData?.teacher, payments: payments || [] };
     },
-    enabled: !!user?.profileId,
+    enabled: !!user?.id,
   });
 }
-
-const salaryTypeLabel: Record<string, string> = { per_hour: 'Per Hour', per_day: 'Per Day', per_month: 'Per Month' };
-const freqLabel: Record<string, string> = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', custom: 'Custom' };
 
 export default function TeacherSalaryHistory() {
   const { data, isLoading } = useTeacherSalary();
@@ -42,22 +30,20 @@ export default function TeacherSalaryHistory() {
     return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   }
 
-  const { teacher, payments } = data;
-  const totalReceived = payments.reduce((s, p) => s + Number(p.amount), 0);
-  const thisMonth = payments.filter(p => {
-    const d = new Date(p.payment_date);
+  const { payments } = data;
+  const totalReceived = payments.reduce((s: number, p: any) => s + Number(p.amount), 0);
+  const thisMonth = payments.filter((p: any) => {
+    const d = new Date(p.paymentDate);
     const now = new Date();
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
-  const thisMonthTotal = thisMonth.reduce((s, p) => s + Number(p.amount), 0);
+  const thisMonthTotal = thisMonth.reduce((s: number, p: any) => s + Number(p.amount), 0);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold text-foreground">Salary History</h1>
-        <p className="text-muted-foreground">
-          {salaryTypeLabel[teacher.salary_type] || 'Per Month'} · ₹{Number(teacher.salary_amount || 0).toLocaleString()} · {freqLabel[teacher.payment_frequency] || 'Monthly'}
-        </p>
+        <p className="text-muted-foreground">Your recent salary payments and records</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -109,13 +95,13 @@ export default function TeacherSalaryHistory() {
                 </tr>
               </thead>
               <tbody>
-                {payments.map((pay, i) => (
-                  <motion.tr key={pay.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
+                {payments.map((pay: any, i: number) => (
+                  <motion.tr key={pay._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
                     className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 text-foreground">{pay.payment_date}</td>
+                    <td className="px-4 py-3 text-foreground">{new Date(pay.paymentDate).toLocaleDateString()}</td>
                     <td className="px-4 py-3 text-success font-medium">₹{Number(pay.amount).toLocaleString()}</td>
-                    <td className="px-4 py-3 text-muted-foreground capitalize">{pay.payment_mode.replace('_', ' ')}</td>
-                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{pay.period_label || '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground capitalize">{pay.paymentMode?.replace('_', ' ')}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{pay.month} {pay.year}</td>
                     <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{pay.notes || '—'}</td>
                   </motion.tr>
                 ))}

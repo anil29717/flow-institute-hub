@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/api/client';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { User, Lock, Save, Loader2 } from 'lucide-react';
@@ -20,17 +20,13 @@ export default function SettingsPage() {
   const [changingPw, setChangingPw] = useState(false);
 
   const handleUpdateProfile = async () => {
-    if (!user?.profileId) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ first_name: firstName, last_name: lastName })
-        .eq('id', user.profileId);
-      if (error) throw error;
+      await api.put('/auth/me', { firstName, lastName });
       toast.success('Profile updated successfully');
+      // Note: A context reload might be needed to reflect names globally
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(e.message || 'Failed to update profile');
     } finally {
       setSaving(false);
     }
@@ -47,14 +43,13 @@ export default function SettingsPage() {
     }
     setChangingPw(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
+      await api.put('/auth/me', { password: newPassword });
       toast.success('Password changed successfully');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(e.message || 'Failed to change password');
     } finally {
       setChangingPw(false);
     }

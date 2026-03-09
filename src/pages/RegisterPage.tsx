@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { GraduationCap, Loader2, ArrowLeft, Building2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/api/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -47,23 +47,18 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('register-owner', {
-        body: {
-          instituteName: form.instituteName.trim(),
-          code: form.code.trim().toUpperCase(),
-          address: form.address.trim(),
-          phone: form.phone.trim(),
-          instituteEmail: form.instituteEmail.trim(),
-          ownerEmail: form.ownerEmail.trim(),
-          ownerPassword: form.ownerPassword,
-          ownerFirstName: form.ownerFirstName.trim(),
-          ownerLastName: form.ownerLastName.trim(),
-          ownerPhone: form.ownerPhone.trim(),
-        },
+      await api.post('/auth/register-owner', {
+        instituteName: form.instituteName.trim(),
+        code: form.code.trim().toUpperCase(),
+        address: form.address.trim(),
+        phone: form.phone.trim(),
+        instituteEmail: form.instituteEmail.trim(),
+        ownerEmail: form.ownerEmail.trim(),
+        ownerPassword: form.ownerPassword,
+        ownerFirstName: form.ownerFirstName.trim(),
+        ownerLastName: form.ownerLastName.trim(),
+        ownerPhone: form.ownerPhone.trim(),
       });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
 
       setSuccess(true);
     } catch (err: any) {

@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/api/client';
 import { CreditCard, Plus, Loader2, X, Edit2, Trash2, Users, GraduationCap, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Plan {
-  id: string;
+  _id: string;
   name: string;
-  max_days: number;
-  max_students: number;
-  max_teachers: number;
+  maxDays: number;
+  maxStudents: number;
+  maxTeachers: number;
   price: number;
-  is_active: boolean;
-  created_at: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export default function PlansPage() {
@@ -24,19 +24,14 @@ export default function PlansPage() {
   const { data: plans, isLoading } = useQuery({
     queryKey: ['admin_plans'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('plans')
-        .select('*')
-        .order('price', { ascending: true });
-      if (error) throw error;
+      const data = await api.get('/plans');
       return data as Plan[];
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('plans').delete().eq('id', id);
-      if (error) throw error;
+      await api.delete(`/plans/${id}`);
     },
     onSuccess: () => {
       toast.success('Plan deleted');
@@ -79,7 +74,7 @@ export default function PlansPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {plans.map((plan, i) => (
-            <motion.div key={plan.id} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.05 }}
+            <motion.div key={plan._id} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.05 }}
               className="bg-card rounded-xl border border-border p-6 hover:shadow-md transition-shadow relative">
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -92,7 +87,7 @@ export default function PlansPage() {
                   <button onClick={() => openEdit(plan)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button onClick={() => deleteMutation.mutate(plan.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                  <button onClick={() => deleteMutation.mutate(plan._id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -105,7 +100,7 @@ export default function PlansPage() {
                   </div>
                   <div>
                     <p className="text-muted-foreground">Validity</p>
-                    <p className="font-semibold text-foreground">{plan.max_days} days</p>
+                    <p className="font-semibold text-foreground">{plan.maxDays} days</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
@@ -114,7 +109,7 @@ export default function PlansPage() {
                   </div>
                   <div>
                     <p className="text-muted-foreground">Max Students</p>
-                    <p className="font-semibold text-foreground">{plan.max_students}</p>
+                    <p className="font-semibold text-foreground">{plan.maxStudents}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
@@ -123,12 +118,12 @@ export default function PlansPage() {
                   </div>
                   <div>
                     <p className="text-muted-foreground">Max Teachers</p>
-                    <p className="font-semibold text-foreground">{plan.max_teachers}</p>
+                    <p className="font-semibold text-foreground">{plan.maxTeachers}</p>
                   </div>
                 </div>
               </div>
 
-              {!plan.is_active && (
+              {!plan.isActive && (
                 <div className="mt-3 px-2 py-1 rounded bg-muted text-muted-foreground text-xs text-center">Inactive</div>
               )}
             </motion.div>
@@ -148,11 +143,11 @@ function PlanFormModal({ plan, onClose }: { plan: Plan | null; onClose: () => vo
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: plan?.name ?? '',
-    max_days: plan?.max_days ?? 30,
-    max_students: plan?.max_students ?? 10,
-    max_teachers: plan?.max_teachers ?? 2,
+    maxDays: plan?.maxDays ?? 30,
+    maxStudents: plan?.maxStudents ?? 10,
+    maxTeachers: plan?.maxTeachers ?? 2,
     price: plan?.price ?? 0,
-    is_active: plan?.is_active ?? true,
+    isActive: plan?.isActive ?? true,
   });
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -163,12 +158,10 @@ function PlanFormModal({ plan, onClose }: { plan: Plan | null; onClose: () => vo
     setLoading(true);
     try {
       if (plan) {
-        const { error } = await supabase.from('plans').update(form).eq('id', plan.id);
-        if (error) throw error;
+        await api.put(`/plans/${plan._id}`, form);
         toast.success('Plan updated');
       } else {
-        const { error } = await supabase.from('plans').insert(form);
-        if (error) throw error;
+        await api.post('/plans', form);
         toast.success('Plan created');
       }
       qc.invalidateQueries({ queryKey: ['admin_plans'] });
@@ -193,12 +186,12 @@ function PlanFormModal({ plan, onClose }: { plan: Plan | null; onClose: () => vo
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="Plan Name" value={form.name} onChange={set('name')} required placeholder="e.g. Gold" />
           <Field label="Price (₹)" type="number" value={form.price} onChange={set('price')} required min={0} />
-          <Field label="Validity (days)" type="number" value={form.max_days} onChange={set('max_days')} required min={1} />
-          <Field label="Max Students" type="number" value={form.max_students} onChange={set('max_students')} required min={1} />
-          <Field label="Max Teachers" type="number" value={form.max_teachers} onChange={set('max_teachers')} required min={1} />
+          <Field label="Validity (days)" type="number" value={form.maxDays} onChange={set('maxDays')} required min={1} />
+          <Field label="Max Students" type="number" value={form.maxStudents} onChange={set('maxStudents')} required min={1} />
+          <Field label="Max Teachers" type="number" value={form.maxTeachers} onChange={set('maxTeachers')} required min={1} />
 
           <label className="flex items-center gap-2 text-sm text-foreground">
-            <input type="checkbox" checked={form.is_active} onChange={e => setForm(prev => ({ ...prev, is_active: e.target.checked }))}
+            <input type="checkbox" checked={form.isActive} onChange={e => setForm(prev => ({ ...prev, isActive: e.target.checked }))}
               className="rounded border-input" />
             Active
           </label>

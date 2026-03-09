@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Users, GraduationCap, Layers, CheckCircle, Calendar } from 'lucide-react';
 
@@ -12,56 +12,24 @@ function useTeacherDashboard() {
     queryFn: async () => {
       if (!user?.id) return null;
 
-      // Get teacher record
-      const { data: teacher } = await supabase
-        .from('teachers')
-        .select('*, profiles(*)')
-        .eq('profile_id', user.profileId!)
-        .single();
+      const [batches, students, allAttendance, salaryPayments] = await Promise.all([
+        api.get('/batches').catch(() => []),
+        api.get('/students').catch(() => []),
+        api.get('/attendance').catch(() => []),
+        api.get('/salaries').catch(() => [])
+      ]);
 
-      if (!teacher) return null;
-
-      // Get assigned batches
-      const { data: batches } = await supabase
-        .from('batches')
-        .select('*, courses(name)')
-        .eq('teacher_id', teacher.id);
-
-      // Get students in those batches
-      const batchIds = (batches ?? []).map(b => b.id);
-      let students: any[] = [];
-      if (batchIds.length > 0) {
-        const { data } = await supabase
-          .from('students')
-          .select('*')
-          .in('batch_id', batchIds)
-          .eq('is_active', true);
-        students = data ?? [];
-      }
-
-      // Today's attendance count
       const today = new Date().toISOString().split('T')[0];
-      let todayAttendance: any[] = [];
-      if (batchIds.length > 0) {
-        const { data } = await supabase
-          .from('attendance')
-          .select('*')
-          .in('batch_id', batchIds)
-          .eq('date', today);
-        todayAttendance = data ?? [];
-      }
+      const batchIds = (batches ?? []).map((b: any) => b._id);
 
-      // Recent salary payments
-      const { data: salaryPayments } = await supabase
-        .from('salary_payments')
-        .select('*')
-        .eq('teacher_id', teacher.id)
-        .order('payment_date', { ascending: false })
-        .limit(5);
+      const todayAttendance = (allAttendance ?? []).filter((a: any) => {
+        const aBatchId = typeof a.batchId === 'string' ? a.batchId : a.batchId?._id;
+        return batchIds.includes(aBatchId) && new Date(a.date).toISOString().split('T')[0] === today;
+      });
 
-      return { teacher, batches: batches ?? [], students, todayAttendance, salaryPayments: salaryPayments ?? [] };
+      return { teacher: user, batches: batches || [], students: students || [], todayAttendance, salaryPayments: salaryPayments || [] };
     },
-    enabled: !!user?.id && !!user?.profileId,
+    enabled: !!user?.id,
   });
 }
 
@@ -74,7 +42,7 @@ export default function TeacherDashboard() {
   }
 
   const { batches, students, todayAttendance, salaryPayments } = data;
-  const presentToday = todayAttendance.filter(a => a.status === 'present').length;
+  const presentToday = todayAttendance.filter((a: any) => a.status === 'present').length;
   const totalMarkedToday = todayAttendance.length;
 
   const statCards = [
@@ -115,19 +83,18 @@ export default function TeacherDashboard() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {batches.map((batch: any, i: number) => {
-              const batchStudents = students.filter(s => s.batch_id === batch.id);
+              const batchStudents = students.filter((s: any) => s.batchId?._id === batch._id || s.batchId === batch._id);
               return (
-                <motion.div key={batch.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                <motion.div key={batch._id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
                   className="p-4 rounded-lg border border-border hover:bg-muted/30 transition-colors">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium text-foreground">{batch.name}</h4>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      batch.status === 'ongoing' ? 'bg-success/10 text-success' :
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${batch.status === 'ongoing' ? 'bg-success/10 text-success' :
                       batch.status === 'upcoming' ? 'bg-warning/10 text-warning' :
-                      'bg-muted text-muted-foreground'
-                    }`}>{batch.status}</span>
+                        'bg-muted text-muted-foreground'
+                      }`}>{batch.status}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{(batch as any).courses?.name || 'No course'}</p>
+                  <p className="text-xs text-muted-foreground">{batch.courseId?.name || 'No course'}</p>
                   <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                     <Users className="w-3.5 h-3.5" />
                     <span>{batchStudents.length} students</span>
@@ -145,10 +112,10 @@ export default function TeacherDashboard() {
           <h3 className="font-display font-semibold text-foreground mb-4">Recent Salary Payments</h3>
           <div className="space-y-2">
             {salaryPayments.map((pay: any) => (
-              <div key={pay.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
+              <div key={pay._id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
                 <div>
                   <p className="text-sm font-medium text-foreground">₹{Number(pay.amount).toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">{pay.period_label || pay.payment_date} · {pay.payment_mode.replace('_', ' ')}</p>
+                  <p className="text-xs text-muted-foreground">{pay.month} {pay.year} · {pay.paymentMode?.replace('_', ' ')}</p>
                 </div>
                 <span className="text-xs text-success font-medium">Paid</span>
               </div>

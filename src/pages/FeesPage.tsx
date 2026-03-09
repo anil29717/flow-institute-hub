@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStudents } from '@/hooks/useSupabaseData';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { IndianRupee, TrendingUp, AlertTriangle, CheckCircle, Loader2, X, Clock, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,11 +10,7 @@ function useFeePayments() {
   return useQuery({
     queryKey: ['fee_payments'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('fee_payments')
-        .select('*, students(first_name, last_name, student_id)')
-        .order('payment_date', { ascending: false });
-      if (error) throw error;
+      const data = await api.get('/fees');
       return data;
     },
   });
@@ -23,18 +19,8 @@ function useFeePayments() {
 function useAddPayment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payment: { student_id: string; amount: number; payment_mode: string; payment_date: string; notes?: string }) => {
-      const { data, error } = await supabase.from('fee_payments').insert(payment).select().single();
-      if (error) throw error;
-
-      // Update fee_paid on student
-      const { data: student } = await supabase.from('students').select('fee_paid, total_fee').eq('id', payment.student_id).single();
-      if (student) {
-        const newPaid = (Number(student.fee_paid) || 0) + payment.amount;
-        const totalFee = Number(student.total_fee) || 0;
-        const feeStatus = newPaid >= totalFee ? 'paid' : newPaid > 0 ? 'partial' : 'pending';
-        await supabase.from('students').update({ fee_paid: newPaid, fee_status: feeStatus }).eq('id', payment.student_id);
-      }
+    mutationFn: async (payment: { studentId: string; amount: number; paymentMode: string; paymentDate: string; notes?: string }) => {
+      const data = await api.post('/fees/pay', payment);
       return data;
     },
     onSuccess: () => {
@@ -55,14 +41,14 @@ export default function FeesPage() {
 
   const stats = useMemo(() => {
     const all = students ?? [];
-    const totalGenerated = all.reduce((s, st) => s + (Number(st.total_fee) || 0), 0);
-    const totalReceived = all.reduce((s, st) => s + (Number(st.fee_paid) || 0), 0);
+    const totalGenerated = all.reduce((s: number, st: any) => s + (Number(st.totalFees) || 0), 0);
+    const totalReceived = all.reduce((s: number, st: any) => s + (Number(st.feesPaid) || 0), 0);
     const pending = totalGenerated - totalReceived;
     return { totalGenerated, totalReceived, pending };
   }, [students]);
 
   const pendingStudents = useMemo(() => {
-    return (students ?? []).filter(s => s.fee_status !== 'paid' && (Number(s.total_fee) || 0) > 0);
+    return (students ?? []).filter((s: any) => s.feeStatus !== 'paid' && (Number(s.totalFees) || 0) > 0);
   }, [students]);
 
   if (isLoading) {
@@ -102,26 +88,25 @@ export default function FeesPage() {
                 </tr>
               </thead>
               <tbody>
-                {pendingStudents.map((student, i) => {
-                  const total = Number(student.total_fee) || 0;
-                  const paid = Number(student.fee_paid) || 0;
+                {pendingStudents.map((student: any, i: number) => {
+                  const total = Number(student.totalFees) || 0;
+                  const paid = Number(student.feesPaid) || 0;
                   const due = total - paid;
                   return (
-                    <motion.tr key={student.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
+                    <motion.tr key={student._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
                       className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
                       onClick={() => setSelectedStudent(student)}>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-foreground">{student.first_name} {student.last_name}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{student.student_id}</p>
+                        <p className="font-medium text-foreground">{student.firstName} {student.lastName}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{student.studentId}</p>
                       </td>
                       <td className="px-4 py-3 text-foreground">₹{total.toLocaleString()}</td>
                       <td className="px-4 py-3 text-success font-medium">₹{paid.toLocaleString()}</td>
                       <td className="px-4 py-3 text-destructive font-medium">₹{due.toLocaleString()}</td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                          student.fee_status === 'partial' ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive'
-                        }`}>
-                          {student.fee_status}
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${student.feeStatus === 'partial' ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive'
+                          }`}>
+                          {student.feeStatus}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -156,23 +141,22 @@ export default function FeesPage() {
               </tr>
             </thead>
             <tbody>
-              {(students ?? []).map((student, i) => (
-                <motion.tr key={student.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
+              {(students ?? []).map((student: any, i: number) => (
+                <motion.tr key={student._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }}
                   className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
                   onClick={() => setSelectedStudent(student)}>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-foreground">{student.first_name} {student.last_name}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{student.student_id}</p>
+                    <p className="font-medium text-foreground">{student.firstName} {student.lastName}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{student.studentId}</p>
                   </td>
-                  <td className="px-4 py-3 text-foreground">₹{(Number(student.total_fee) || 0).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-success font-medium">₹{(Number(student.fee_paid) || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-foreground">₹{(Number(student.totalFees) || 0).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-success font-medium">₹{(Number(student.feesPaid) || 0).toLocaleString()}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                      student.fee_status === 'paid' ? 'bg-success/10 text-success' :
-                      student.fee_status === 'partial' ? 'bg-warning/10 text-warning' :
-                      'bg-destructive/10 text-destructive'
-                    }`}>
-                      {student.fee_status}
+                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${student.feeStatus === 'paid' ? 'bg-success/10 text-success' :
+                      student.feeStatus === 'partial' ? 'bg-warning/10 text-warning' :
+                        'bg-destructive/10 text-destructive'
+                      }`}>
+                      {student.feeStatus}
                     </span>
                   </td>
                 </motion.tr>
@@ -186,7 +170,7 @@ export default function FeesPage() {
         {selectedStudent && (
           <StudentFeeModal
             student={selectedStudent}
-            payments={(payments ?? []).filter(p => p.student_id === selectedStudent.id)}
+            payments={(payments ?? []).filter((p: any) => p.studentId === selectedStudent._id)}
             onClose={() => setSelectedStudent(null)}
           />
         )}
@@ -211,10 +195,10 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 
 function StudentFeeModal({ student, payments, onClose }: { student: any; payments: any[]; onClose: () => void }) {
   const addPayment = useAddPayment();
-  const [form, setForm] = useState({ amount: '', payment_mode: 'cash', payment_date: new Date().toISOString().split('T')[0], notes: '' });
+  const [form, setForm] = useState({ amount: '', paymentMode: 'cash', paymentDate: new Date().toISOString().split('T')[0], notes: '' });
 
-  const totalFee = Number(student.total_fee) || 0;
-  const feePaid = Number(student.fee_paid) || 0;
+  const totalFee = Number(student.totalFees) || 0;
+  const feePaid = Number(student.feesPaid) || 0;
   const due = totalFee - feePaid;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -222,8 +206,8 @@ function StudentFeeModal({ student, payments, onClose }: { student: any; payment
     const amount = parseFloat(form.amount);
     if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return; }
     addPayment.mutate(
-      { student_id: student.id, amount, payment_mode: form.payment_mode, payment_date: form.payment_date, notes: form.notes || undefined },
-      { onSuccess: () => { setForm({ amount: '', payment_mode: 'cash', payment_date: new Date().toISOString().split('T')[0], notes: '' }); onClose(); } }
+      { studentId: student._id, amount, paymentMode: form.paymentMode, paymentDate: form.paymentDate, notes: form.notes || undefined },
+      { onSuccess: () => { setForm({ amount: '', paymentMode: 'cash', paymentDate: new Date().toISOString().split('T')[0], notes: '' }); onClose(); } }
     );
   };
 
@@ -234,8 +218,8 @@ function StudentFeeModal({ student, payments, onClose }: { student: any; payment
         className="bg-card rounded-xl border border-border p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-display font-bold text-foreground">{student.first_name} {student.last_name}</h2>
-            <p className="text-xs text-muted-foreground font-mono">{student.student_id}</p>
+            <h2 className="text-lg font-display font-bold text-foreground">{student.firstName} {student.lastName}</h2>
+            <p className="text-xs text-muted-foreground font-mono">{student.studentId}</p>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
@@ -269,7 +253,7 @@ function StudentFeeModal({ student, payments, onClose }: { student: any; payment
               </div>
               <div>
                 <label className="text-xs font-medium text-foreground mb-1 block">Mode</label>
-                <select value={form.payment_mode} onChange={e => setForm(p => ({ ...p, payment_mode: e.target.value }))}
+                <select value={form.paymentMode} onChange={e => setForm(p => ({ ...p, paymentMode: e.target.value }))}
                   className="w-full h-9 rounded-lg border border-input bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="cash">Cash</option>
                   <option value="upi">UPI</option>
@@ -280,7 +264,7 @@ function StudentFeeModal({ student, payments, onClose }: { student: any; payment
               </div>
               <div>
                 <label className="text-xs font-medium text-foreground mb-1 block">Date</label>
-                <input type="date" value={form.payment_date} onChange={e => setForm(p => ({ ...p, payment_date: e.target.value }))}
+                <input type="date" value={form.paymentDate} onChange={e => setForm(p => ({ ...p, paymentDate: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
@@ -305,10 +289,10 @@ function StudentFeeModal({ student, payments, onClose }: { student: any; payment
           ) : (
             <div className="space-y-2">
               {payments.map(p => (
-                <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
+                <div key={p._id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
                   <div>
                     <p className="text-sm font-medium text-foreground">₹{Number(p.amount).toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground">{p.payment_date} · <span className="capitalize">{p.payment_mode.replace('_', ' ')}</span></p>
+                    <p className="text-xs text-muted-foreground">{new Date(p.paymentDate).toLocaleDateString()} · <span className="capitalize">{p.paymentMode?.replace('_', ' ')}</span></p>
                   </div>
                   {p.notes && <p className="text-xs text-muted-foreground max-w-[120px] truncate">{p.notes}</p>}
                 </div>

@@ -50,7 +50,7 @@ export default function TestsPage() {
                 {tests.map((test: any) => {
                   const subjects = test.subject ? test.subject.split(', ') : [];
                   return (
-                    <TableRow key={test.id}>
+                    <TableRow key={test._id}>
                       <TableCell className="font-medium">{test.name}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
@@ -59,20 +59,20 @@ export default function TestsPage() {
                           ))}
                         </div>
                       </TableCell>
-                      <TableCell>{format(new Date(test.test_date), 'dd MMM yyyy')}{test.test_time ? ` • ${test.test_time.slice(0,5)}` : ''}</TableCell>
+                      <TableCell>{format(new Date(test.testDate), 'dd MMM yyyy')}{test.testTime ? ` • ${test.testTime.slice(0, 5)}` : ''}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {test.test_batches?.map((tb: any) => (
-                            <Badge key={tb.batch_id} variant="secondary" className="text-xs">{tb.batches?.name}</Badge>
+                          {test.batchIds?.map((batch: any) => (
+                            <Badge key={batch._id} variant="secondary" className="text-xs">{batch.name}</Badge>
                           ))}
                         </div>
                       </TableCell>
-                      <TableCell>{test.test_students?.length ?? 0}</TableCell>
+                      <TableCell>{test.studentIds?.length ?? 0}</TableCell>
                       <TableCell className="text-right space-x-1">
-                        <Button size="sm" variant="outline" onClick={() => setMarksTestId(test.id)}>
+                        <Button size="sm" variant="outline" onClick={() => setMarksTestId(test._id)}>
                           <ClipboardEdit className="w-4 h-4 mr-1" />Marks
                         </Button>
-                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTest.mutate(test.id)}>
+                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteTest.mutate(test._id)}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </TableCell>
@@ -90,3 +90,4 @@ export default function TestsPage() {
     </div>
   );
 }
+

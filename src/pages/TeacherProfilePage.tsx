@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, User, Mail, Phone, Briefcase, GraduationCap, Calendar } from 'lucide-react';
 
@@ -8,27 +8,12 @@ function useTeacherProfile() {
   return useQuery({
     queryKey: ['teacher_profile', user?.id],
     queryFn: async () => {
-      if (!user?.profileId) return null;
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.profileId)
-        .single();
-
-      const { data: teacher } = await supabase
-        .from('teachers')
-        .select('*')
-        .eq('profile_id', user.profileId!)
-        .single();
-
-      return { profile, teacher };
+      if (!user?.id) return null;
+      return api.get('/teachers/me');
     },
-    enabled: !!user?.profileId,
+    enabled: !!user?.id,
   });
 }
-
-const salaryTypeLabel: Record<string, string> = { per_hour: 'Per Hour', per_day: 'Per Day', per_month: 'Per Month' };
 
 export default function TeacherProfilePage() {
   const { data, isLoading } = useTeacherProfile();
@@ -40,13 +25,16 @@ export default function TeacherProfilePage() {
   const { profile, teacher } = data;
   if (!profile) return <p className="text-muted-foreground text-center py-8">Profile not found.</p>;
 
+  // Ensure joinDate is readable
+  const joinDateStr = teacher?.joinDate ? new Date(teacher.joinDate).toLocaleDateString() : '—';
+
   const fields = [
-    { icon: User, label: 'Full Name', value: `${profile.first_name} ${profile.last_name}` },
+    { icon: User, label: 'Full Name', value: `${profile.firstName} ${profile.lastName}` },
     { icon: Mail, label: 'Email', value: profile.email },
     { icon: Phone, label: 'Phone', value: profile.phone || 'Not set' },
-    { icon: Briefcase, label: 'Employee ID', value: teacher?.employee_id || '—' },
+    { icon: Briefcase, label: 'Employee ID', value: teacher?.employeeId || '—' },
     { icon: GraduationCap, label: 'Qualification', value: teacher?.qualification || 'Not set' },
-    { icon: Calendar, label: 'Join Date', value: teacher?.join_date || '—' },
+    { icon: Calendar, label: 'Join Date', value: joinDateStr },
   ];
 
   return (
@@ -56,10 +44,10 @@ export default function TeacherProfilePage() {
       <div className="bg-card rounded-xl border border-border p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl">
-            {profile.first_name[0]}{profile.last_name[0]}
+            {profile.firstName[0]}{profile.lastName[0]}
           </div>
           <div>
-            <h2 className="text-xl font-display font-bold text-foreground">{profile.first_name} {profile.last_name}</h2>
+            <h2 className="text-xl font-display font-bold text-foreground">{profile.firstName} {profile.lastName}</h2>
             <p className="text-sm text-muted-foreground">Teacher</p>
           </div>
         </div>
@@ -80,19 +68,11 @@ export default function TeacherProfilePage() {
 
         {teacher && (
           <div className="mt-6 p-4 rounded-lg border border-border bg-muted/20">
-            <h3 className="text-sm font-display font-semibold text-foreground mb-3">Salary Details</h3>
+            <h3 className="text-sm font-display font-semibold text-foreground mb-3">Professional Details</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div>
-                <p className="text-xs text-muted-foreground">Amount</p>
-                <p className="text-sm font-medium text-foreground">₹{Number(teacher.salary_amount || 0).toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Type</p>
-                <p className="text-sm font-medium text-foreground">{salaryTypeLabel[teacher.salary_type] || 'Per Month'}</p>
-              </div>
-              <div>
                 <p className="text-xs text-muted-foreground">Experience</p>
-                <p className="text-sm font-medium text-foreground">{teacher.experience_years || 0} years</p>
+                <p className="text-sm font-medium text-foreground">{teacher.experienceYears || 0} years</p>
               </div>
             </div>
             {teacher.specialization && teacher.specialization.length > 0 && (

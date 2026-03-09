@@ -1,136 +1,108 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useBatches, useStudents, useTeachers } from '@/hooks/useSupabaseData';
 import { Loader2, CheckCircle, XCircle, Users, Calendar, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
-
-// ─── Hooks ───
-
-function useAttendanceByDate(batchId: string | null, date: string) {
-  return useQuery({
-    queryKey: ['attendance', batchId, date],
-    queryFn: async () => {
-      if (!batchId) return [];
-      const { data, error } = await supabase.from('attendance').select('*').eq('batch_id', batchId).eq('date', date);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!batchId,
-  });
-}
-
-function useTeacherAttendanceByDate(date: string) {
-  return useQuery({
-    queryKey: ['teacher_attendance', date],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('teacher_attendance').select('*').eq('date', date);
-      if (error) throw error;
-      return data;
-    },
-  });
-}
-
-function useMarkAttendance() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (records: { student_id: string; student_name: string; batch_id: string; date: string; status: string }[]) => {
-      if (records.length === 0) return;
-      const { batch_id, date } = records[0];
-      await supabase.from('attendance').delete().eq('batch_id', batch_id).eq('date', date);
-      const { error } = await supabase.from('attendance').insert(records);
-      if (error) throw error;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['attendance'] }); toast.success('Student attendance saved'); },
-    onError: (e: Error) => toast.error(e.message),
-  });
-}
-
-function useMarkTeacherAttendance() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (records: { teacher_id: string; date: string; status: string }[]) => {
-      if (records.length === 0) return;
-      const { date } = records[0];
-      // Delete existing for this date, then insert
-      const teacherIds = records.map(r => r.teacher_id);
-      for (const tid of teacherIds) {
-        await supabase.from('teacher_attendance').delete().eq('teacher_id', tid).eq('date', date);
-      }
-      const { error } = await supabase.from('teacher_attendance').insert(records);
-      if (error) throw error;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['teacher_attendance'] }); toast.success('Teacher attendance saved'); },
-    onError: (e: Error) => toast.error(e.message),
-  });
-}
-
-function useAttendanceStats() {
-  return useQuery({
-    queryKey: ['attendance_stats'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('attendance').select('status');
-      if (error) throw error;
-      const present = data.filter(a => a.status === 'present').length;
-      const absent = data.filter(a => a.status === 'absent').length;
-      return { total: data.length, present, absent };
-    },
-  });
-}
-
-// ─── Page ───
 
 export default function AttendancePage() {
   const { user } = useAuth();
   const isOwner = user?.role === 'owner';
-  const isTeacher = user?.role === 'teacher';
-  const { data: batches, isLoading: batchesLoading } = useBatches();
-  const { data: allStudents, isLoading: studentsLoading } = useStudents();
-  const { data: teachers, isLoading: teachersLoading } = useTeachers();
-  const { data: stats, isLoading: statsLoading } = useAttendanceStats();
+
+  const [batches, setBatches] = useState<any[]>([]);
+  const [allStudents, setAllStudents] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
 
   const [selectedBatchId, setSelectedBatchId] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [teacherDate, setTeacherDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const { data: existingAttendance, isLoading: attendanceLoading } = useAttendanceByDate(selectedBatchId || null, selectedDate);
-  const { data: existingTeacherAttendance } = useTeacherAttendanceByDate(teacherDate);
-  const markAttendance = useMarkAttendance();
-  const markTeacherAttendance = useMarkTeacherAttendance();
+  const [existingAttendance, setExistingAttendance] = useState<any[]>([]);
+  const [existingTeacherAttendance, setExistingTeacherAttendance] = useState<any[]>([]);
+
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [savingStudents, setSavingStudents] = useState(false);
+  const [savingTeachers, setSavingTeachers] = useState(false);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [user]);
+
+  const fetchInitialData = async () => {
+    try {
+      setLoading(true);
+      const [bRes, sRes, tRes, attRes] = await Promise.all([
+        api.get('/batches'),
+        api.get('/students'),
+        isOwner ? api.get('/teachers') : Promise.resolve([]),
+        api.get('/attendance')
+      ]);
+      setBatches(bRes);
+      setAllStudents(sRes);
+      if (isOwner) setTeachers(tRes);
+
+      // compute global stats manually from API response as no dedicated stats EP right now
+      const present = attRes.filter((a: any) => a.status === 'present').length;
+      const absent = attRes.filter((a: any) => a.status === 'absent').length;
+      setStats({ total: attRes.length, present, absent });
+    } catch (e: any) {
+      toast.error('Failed to load initial data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedBatchId && selectedDate) {
+      api.get(`/attendance?batchId=${selectedBatchId}&date=${selectedDate}`).then(res => {
+        // we filter manually just in case api does not honor query param yet
+        const filtered = Array.isArray(res) ? res.filter(a => a.batchId === selectedBatchId && (new Date(a.date).toISOString().split('T')[0] === selectedDate)) : [];
+        setExistingAttendance(filtered);
+      }).catch(() => setExistingAttendance([]));
+    }
+  }, [selectedBatchId, selectedDate]);
+
+  useEffect(() => {
+    if (teacherDate && isOwner) {
+      // No teacher attendance endpoint exists in current backend (just student attendance). 
+      // We will fallback to empty array for now logic-wise to avoid crash
+      setExistingTeacherAttendance([]);
+    }
+  }, [teacherDate, isOwner]);
+
 
   // Students in selected batch
   const batchStudents = useMemo(() => {
     if (!selectedBatchId || !allStudents) return [];
-    return allStudents.filter(s => s.batch_id === selectedBatchId && s.is_active);
+    return allStudents.filter(s => (s.batchId?.id || s.batchId?._id) === selectedBatchId && s.isActive);
   }, [selectedBatchId, allStudents]);
 
   // Student attendance map
   const [studentMap, setStudentMap] = useState<Record<string, string>>({});
-  useMemo(() => {
+  useEffect(() => {
     if (existingAttendance && existingAttendance.length > 0) {
       const map: Record<string, string> = {};
-      existingAttendance.forEach(a => { if (a.student_id) map[a.student_id] = a.status; });
+      existingAttendance.forEach(a => { if (a.studentId?.id || a.studentId?._id) map[a.studentId.id || a.studentId._id] = a.status; });
       setStudentMap(map);
     } else if (existingAttendance && existingAttendance.length === 0 && batchStudents.length > 0) {
       const map: Record<string, string> = {};
-      batchStudents.forEach(s => { map[s.id] = 'present'; });
+      batchStudents.forEach(s => { map[s.id || s._id] = 'present'; });
       setStudentMap(map);
     }
   }, [existingAttendance, batchStudents]);
 
   // Teacher attendance map
   const [teacherMap, setTeacherMap] = useState<Record<string, string>>({});
-  useMemo(() => {
-    if (existingTeacherAttendance && teachers) {
+  useEffect(() => {
+    if (existingTeacherAttendance && teachers.length > 0) {
       const map: Record<string, string> = {};
-      teachers.forEach(t => { map[t.id] = 'present'; });
-      existingTeacherAttendance.forEach(a => { map[a.teacher_id] = a.status; });
+      teachers.forEach(t => { map[t.id || t._id] = 'present'; });
+      existingTeacherAttendance.forEach(a => { map[a.teacherId] = a.status; });
       setTeacherMap(map);
-    } else if (teachers) {
+    } else if (teachers.length > 0) {
       const map: Record<string, string> = {};
-      teachers.forEach(t => { map[t.id] = 'present'; });
+      teachers.forEach(t => { map[t.id || t._id] = 'present'; });
       setTeacherMap(map);
     }
   }, [existingTeacherAttendance, teachers]);
@@ -143,30 +115,35 @@ export default function AttendancePage() {
     setTeacherMap(prev => ({ ...prev, [id]: prev[id] === 'present' ? 'absent' : prev[id] === 'absent' ? 'late' : 'present' }));
   };
 
-  const handleSaveStudents = () => {
+  const handleSaveStudents = async () => {
     if (!selectedBatchId) return;
-    const records = batchStudents.map(s => ({
-      student_id: s.id,
-      student_name: `${s.first_name} ${s.last_name}`,
-      batch_id: selectedBatchId,
-      date: selectedDate,
-      status: studentMap[s.id] || 'present',
-    }));
-    markAttendance.mutate(records);
+    setSavingStudents(true);
+
+    // Instead of bulk save loop that deletes and reinserts, we'd need a multi-mark endpoint or loop them
+    // API current just has POST /attendance that expects single object. We will simulate bulk with Promise.all
+    try {
+      const promises = batchStudents.map(s => api.post('/attendance', {
+        studentId: s.id || s._id,
+        batchId: selectedBatchId,
+        date: selectedDate,
+        status: studentMap[s.id || s._id] || 'present'
+      }));
+      await Promise.all(promises);
+      toast.success('Student attendance saved!');
+    } catch (e: any) {
+      toast.error('Failed to save student attendance');
+    } finally {
+      setSavingStudents(false);
+    }
   };
 
-  const handleSaveTeachers = () => {
+  const handleSaveTeachers = async () => {
     if (!teachers) return;
-    const records = teachers.map(t => ({
-      teacher_id: t.id,
-      date: teacherDate,
-      status: teacherMap[t.id] || 'present',
-    }));
-    markTeacherAttendance.mutate(records);
+    // We don't have a teacher attendance API route in Node yet.
+    toast.error('Teacher attendance saving is not yet implemented on the backend API');
   };
 
-  const isLoading = batchesLoading || studentsLoading || statsLoading || teachersLoading;
-  if (isLoading) {
+  if (loading) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   }
 
@@ -212,26 +189,24 @@ export default function AttendancePage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 {(teachers ?? []).map((teacher, i) => {
-                  const p = (teacher as any).profiles;
-                  const status = teacherMap[teacher.id] || 'present';
+                  const status = teacherMap[teacher.id || teacher._id] || 'present';
                   return (
-                    <motion.div key={teacher.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                    <motion.div key={teacher.id || teacher._id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
                       className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                          {p?.first_name?.[0]}{p?.last_name?.[0]}
+                          {teacher.firstName?.[0]}{teacher.lastName?.[0]}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-foreground">{p?.first_name} {p?.last_name}</p>
-                          <p className="text-xs text-muted-foreground">{teacher.employee_id}</p>
+                          <p className="text-sm font-medium text-foreground">{teacher.firstName} {teacher.lastName}</p>
+                          <p className="text-xs text-muted-foreground">{teacher.employeeId}</p>
                         </div>
                       </div>
-                      <button onClick={() => toggleTeacherStatus(teacher.id)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                          status === 'present' ? 'bg-success/10 text-success hover:bg-success/20' :
+                      <button onClick={() => toggleTeacherStatus(teacher.id || teacher._id)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${status === 'present' ? 'bg-success/10 text-success hover:bg-success/20' :
                           status === 'absent' ? 'bg-destructive/10 text-destructive hover:bg-destructive/20' :
-                          'bg-warning/10 text-warning hover:bg-warning/20'
-                        }`}>
+                            'bg-warning/10 text-warning hover:bg-warning/20'
+                          }`}>
                         {status === 'present' ? '✓ Present' : status === 'absent' ? '✗ Absent' : '⏱ Late'}
                       </button>
                     </motion.div>
@@ -239,9 +214,9 @@ export default function AttendancePage() {
                 })}
               </div>
 
-              <button onClick={handleSaveTeachers} disabled={markTeacherAttendance.isPending}
+              <button onClick={handleSaveTeachers} disabled={savingTeachers}
                 className="mt-4 w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
-                {markTeacherAttendance.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                {savingTeachers && <Loader2 className="w-4 h-4 animate-spin" />}
                 Save Teacher Attendance
               </button>
             </>
@@ -259,9 +234,9 @@ export default function AttendancePage() {
             <select value={selectedBatchId} onChange={e => setSelectedBatchId(e.target.value)}
               className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <option value="">Select batch</option>
-              {(batches ?? []).map(b => (
-                <option key={b.id} value={b.id}>
-                  {b.name} — {(b as any).teachers?.profiles?.first_name ? `${(b as any).teachers.profiles.first_name} ${(b as any).teachers.profiles.last_name}` : 'No teacher'}
+              {batches.map(b => (
+                <option key={b.id || b._id} value={b.id || b._id}>
+                  {b.name} — {b.teacherId ? `${b.teacherId.firstName} ${b.teacherId.lastName}` : 'No teacher'}
                 </option>
               ))}
             </select>
@@ -275,8 +250,6 @@ export default function AttendancePage() {
 
         {!selectedBatchId ? (
           <p className="text-sm text-muted-foreground text-center py-6">Select a batch to mark attendance</p>
-        ) : attendanceLoading ? (
-          <div className="flex justify-center py-6"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
         ) : batchStudents.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">No students in this batch</p>
         ) : (
@@ -289,25 +262,24 @@ export default function AttendancePage() {
 
             <div className="space-y-2">
               {batchStudents.map((student, i) => {
-                const status = studentMap[student.id] || 'present';
+                const status = studentMap[student.id || student._id] || 'present';
                 return (
-                  <motion.div key={student.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
+                  <motion.div key={student.id || student._id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03 }}
                     className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-xs">
-                        {student.first_name[0]}{student.last_name[0]}
+                        {student.firstName[0]}{student.lastName[0]}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-foreground">{student.first_name} {student.last_name}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{student.student_id}</p>
+                        <p className="text-sm font-medium text-foreground">{student.firstName} {student.lastName}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{student.studentId}</p>
                       </div>
                     </div>
-                    <button onClick={() => toggleStudentStatus(student.id)}
-                      className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                        status === 'present' ? 'bg-success/10 text-success hover:bg-success/20' :
+                    <button onClick={() => toggleStudentStatus(student.id || student._id)}
+                      className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${status === 'present' ? 'bg-success/10 text-success hover:bg-success/20' :
                         status === 'absent' ? 'bg-destructive/10 text-destructive hover:bg-destructive/20' :
-                        'bg-warning/10 text-warning hover:bg-warning/20'
-                      }`}>
+                          'bg-warning/10 text-warning hover:bg-warning/20'
+                        }`}>
                       {status === 'present' ? '✓ Present' : status === 'absent' ? '✗ Absent' : '⏱ Late'}
                     </button>
                   </motion.div>
@@ -315,9 +287,9 @@ export default function AttendancePage() {
               })}
             </div>
 
-            <button onClick={handleSaveStudents} disabled={markAttendance.isPending}
+            <button onClick={handleSaveStudents} disabled={savingStudents}
               className="mt-4 w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
-              {markAttendance.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {savingStudents && <Loader2 className="w-4 h-4 animate-spin" />}
               Save Student Attendance
             </button>
           </>

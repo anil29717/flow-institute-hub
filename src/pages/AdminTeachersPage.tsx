@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
+import { api } from '@/api/client';
 import { Users, Search, Loader2 } from 'lucide-react';
 
 export default function AdminTeachersPage() {
@@ -9,34 +8,43 @@ export default function AdminTeachersPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  const { data: institutes } = useQuery({
-    queryKey: ['admin_institutes_list'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('institutes').select('id, name').order('name');
-      if (error) throw error;
-      return data;
-    },
-  });
+  const [institutes, setInstitutes] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: teachers, isLoading } = useQuery({
-    queryKey: ['admin_all_teachers', instituteFilter, dateFrom, dateTo],
-    queryFn: async () => {
-      let query = supabase
-        .from('teachers')
-        .select('*, profiles(first_name, last_name, email, phone), institutes(name)')
-        .order('created_at', { ascending: false });
-      if (instituteFilter) query = query.eq('institute_id', instituteFilter);
-      if (dateFrom) query = query.gte('join_date', dateFrom);
-      if (dateTo) query = query.lte('join_date', dateTo);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
-    },
-  });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        // Assuming admin can fetch all institutes and all teachers
+        const [instRes, teachRes] = await Promise.all([
+          api.get('/institutes'),
+          api.get('/teachers')
+        ]);
+        setInstitutes(instRes);
+        setTeachers(teachRes);
+      } catch (err) {
+        console.error('Failed to fetch data', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
-  const filtered = (teachers ?? []).filter(t => {
-    const p = (t as any).profiles;
-    const text = `${p?.first_name ?? ''} ${p?.last_name ?? ''} ${p?.email ?? ''} ${t.employee_id}`;
+  const filtered = teachers.filter(t => {
+    if (instituteFilter && t.instituteId?._id !== instituteFilter && t.instituteName !== institutes.find(i => i._id === instituteFilter)?.name) return false;
+
+    // Convert to Date for comparison
+    if (dateFrom || dateTo) {
+      // Using createdAt as join_date since we don't store join_date specifically on Teacher model or we can use createdAt
+      // Let's assume it's stored in createdAt or similar if not specified
+      const tDate = t.createdAt ? new Date(t.createdAt) : new Date();
+      if (dateFrom && new Date(tDate) < new Date(dateFrom)) return false;
+      if (dateTo && new Date(tDate) > new Date(dateTo)) return false;
+    }
+
+    const text = `${t.firstName ?? ''} ${t.lastName ?? ''} ${t.email ?? ''} ${t.employeeId ?? ''}`;
     return text.toLowerCase().includes(search.toLowerCase());
   });
 
@@ -56,7 +64,7 @@ export default function AdminTeachersPage() {
         <select value={instituteFilter} onChange={e => setInstituteFilter(e.target.value)}
           className="px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring">
           <option value="">All Institutes</option>
-          {(institutes ?? []).map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+          {institutes.map(i => <option key={i._id} value={i._id}>{i.name}</option>)}
         </select>
         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
           className="px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
@@ -87,20 +95,19 @@ export default function AdminTeachersPage() {
               </thead>
               <tbody>
                 {filtered.map(t => {
-                  const p = (t as any).profiles;
                   return (
                     <tr key={t.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3">
                         <div>
-                          <p className="font-medium text-foreground">{p?.first_name} {p?.last_name}</p>
-                          {p?.email && <p className="text-xs text-muted-foreground">{p.email}</p>}
+                          <p className="font-medium text-foreground">{t?.firstName} {t?.lastName}</p>
+                          {t?.email && <p className="text-xs text-muted-foreground">{t.email}</p>}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{t.employee_id}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{(t as any).institutes?.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{t.employeeId}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{t.instituteName ?? '—'}</td>
                       <td className="px-4 py-3 text-muted-foreground">{(t.specialization ?? []).join(', ') || '—'}</td>
                       <td className="px-4 py-3 text-foreground font-medium">₹{t.salary_amount ?? 0}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{new Date(t.join_date).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}</td>
                     </tr>
                   );
                 })}
