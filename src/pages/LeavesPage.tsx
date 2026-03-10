@@ -1,4 +1,4 @@
-import { useLeaveRequests, useUpdateLeaveStatus } from '@/hooks/useSupabaseData';
+import { useLeaveRequests, useUpdateLeaveStatus } from '@/hooks/useApiData';
 import { motion } from 'framer-motion';
 import { Calendar, Check, X, Loader2 } from 'lucide-react';
 

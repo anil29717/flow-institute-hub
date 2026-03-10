@@ -7,6 +7,9 @@ const teacherSchema = new mongoose.Schema({
     qualification: { type: String },
     specialization: [{ type: String }],
     experienceYears: { type: Number, default: 0 },
+    salaryAmount: { type: Number, default: 0 },
+    salaryType: { type: String, enum: ['per_hour', 'per_day', 'per_month'], default: 'per_month' },
+    paymentFrequency: { type: String, enum: ['daily', 'weekly', 'monthly', 'custom'], default: 'monthly' },
     joinDate: { type: Date, default: Date.now },
 }, { timestamps: true });
 

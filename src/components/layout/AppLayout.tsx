@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, Calendar,
   CreditCard, MessageSquare, BarChart3, Settings, LogOut, Menu, X,
-  ClipboardList, Bell, ChevronRight, Layers, Wallet, FileText
+  ClipboardList, Bell, ChevronRight, Layers, Wallet, FileText,
+  Building2, User
 } from 'lucide-react';
 
 const ownerNav = [
@@ -59,9 +60,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <motion.aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col sidebar-bg sidebar-text transition-all duration-300 ${
-          sidebarOpen ? 'w-64' : 'w-20'
-        } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col sidebar-bg sidebar-text transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'
+          } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         <div className="flex items-center gap-3 px-5 h-16 border-b border-sidebar-border">
           <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
@@ -80,11 +80,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             const isActive = location.pathname === item.path;
             return (
               <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
-                  isActive
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${isActive
                     ? 'bg-accent text-accent-foreground shadow-md'
                     : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                }`}>
+                  }`}>
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 {sidebarOpen && <span>{item.label}</span>}
                 {isActive && sidebarOpen && <ChevronRight className="w-4 h-4 ml-auto" />}
@@ -95,8 +94,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         <div className="p-3 border-t border-sidebar-border">
           <div className={`flex items-center gap-3 px-3 py-2 ${!sidebarOpen && 'justify-center'}`}>
-            <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0 text-accent text-sm font-bold">
-              {user?.firstName?.[0]}{user?.lastName?.[0]}
+            <div className="w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0 text-accent">
+              {user?.role === 'teacher' ? <User className="w-5 h-5" /> : <Building2 className="w-5 h-5" />}
             </div>
             {sidebarOpen && (
               <div className="flex-1 min-w-0">

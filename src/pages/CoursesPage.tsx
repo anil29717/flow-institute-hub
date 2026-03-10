@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useCourses } from '@/hooks/useSupabaseData';
+import { useCourses } from '@/hooks/useApiData';
 import { Plus, Users, Clock, IndianRupee, Loader2 } from 'lucide-react';
 
 export default function CoursesPage() {

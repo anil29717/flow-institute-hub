@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useBatches, useCreateBatch, useDeleteBatch, useTeachers } from '@/hooks/useSupabaseData';
+import { useBatches, useCreateBatch, useDeleteBatch, useTeachers } from '@/hooks/useApiData';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { Plus, Clock, Loader2, Trash2, Users, X } from 'lucide-react';

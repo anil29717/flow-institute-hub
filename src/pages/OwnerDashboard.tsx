@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, GraduationCap, IndianRupee, TrendingUp, Layers, Loader2, CreditCard, History, AlertTriangle, X } from 'lucide-react';
-import { useDashboardStats, useStudents, useInstitute } from '@/hooks/useSupabaseData';
+import { useDashboardStats, useStudents, useInstitute } from '@/hooks/useApiData';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { useQuery } from '@tanstack/react-query';
@@ -17,10 +17,10 @@ export default function OwnerDashboard() {
 
   const feeStats = useMemo(() => {
     const all = students ?? [];
-    const totalGenerated = all.reduce((s: number, st: any) => s + (Number(st.totalFee) || 0), 0);
-    const totalReceived = all.reduce((s: number, st: any) => s + (Number(st.feePaid) || 0), 0);
+    const totalGenerated = all.reduce((s: number, st: any) => s + (Number(st.totalFees) || 0), 0);
+    const totalReceived = all.reduce((s: number, st: any) => s + (Number(st.feesPaid) || 0), 0);
     const pending = totalGenerated - totalReceived;
-    const pendingStudents = all.filter((s: any) => s.feeStatus !== 'paid' && (Number(s.totalFee) || 0) > 0);
+    const pendingStudents = all.filter((s: any) => s.feeStatus !== 'paid' && (Number(s.totalFees) || 0) > 0);
     return { totalGenerated, totalReceived, pending, pendingStudents };
   }, [students]);
 
@@ -165,7 +165,7 @@ export default function OwnerDashboard() {
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Pending Collections ({feeStats.pendingStudents.length})</p>
             <div className="space-y-2">
               {feeStats.pendingStudents.slice(0, 5).map((student: any) => {
-                const due = (Number(student.totalFee) || 0) - (Number(student.feePaid) || 0);
+                const due = (Number(student.totalFees) || 0) - (Number(student.feesPaid) || 0);
                 return (
                   <div key={student._id} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/50">
                     <div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center">

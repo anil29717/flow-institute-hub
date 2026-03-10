@@ -33,9 +33,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col bg-card border-r border-border transition-all duration-300 ${
-          sidebarOpen ? 'w-60' : 'w-[68px]'
-        } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        className={`fixed lg:static inset-y-0 left-0 z-50 flex flex-col bg-card border-r border-border transition-all duration-300 ${sidebarOpen ? 'w-60' : 'w-[68px]'
+          } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 h-16 border-b border-border">
@@ -64,11 +63,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             const isActive = location.pathname === item.path;
             return (
               <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  isActive
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                } ${!sidebarOpen ? 'justify-center' : ''}`}
+                  } ${!sidebarOpen ? 'justify-center' : ''}`}
                 title={!sidebarOpen ? item.label : undefined}>
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 {sidebarOpen && <span>{item.label}</span>}
@@ -81,8 +79,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* User section */}
         <div className="p-2 border-t border-border">
           <div className={`flex items-center gap-3 px-3 py-2 ${!sidebarOpen ? 'justify-center' : ''}`}>
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary text-xs font-bold">
-              {user?.firstName?.[0]}{user?.lastName?.[0]}
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
+              <ShieldCheck className="w-4 h-4" />
             </div>
             {sidebarOpen && (
               <div className="flex-1 min-w-0">

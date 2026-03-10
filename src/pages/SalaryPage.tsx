@@ -16,7 +16,7 @@ import {
   Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useTeachers } from '@/hooks/useSupabaseData';
+import { useTeachers } from '@/hooks/useApiData';
 import { useAuth } from '@/contexts/AuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -60,9 +60,7 @@ export default function SalaryPage() {
 
   const teacherList = useMemo(() => {
     return (teachers ?? []).filter((t: any) => {
-      const p = t.userId;
-      if (!p) return false;
-      return `${p.firstName} ${p.lastName}`.toLowerCase().includes(search.toLowerCase());
+      return `${t.firstName} ${t.lastName}`.toLowerCase().includes(search.toLowerCase());
     });
   }, [teachers, search]);
 
@@ -142,17 +140,16 @@ export default function SalaryPage() {
             </thead>
             <tbody>
               {teacherList.map((teacher: any, i: number) => {
-                const p = teacher.userId;
                 return (
                   <motion.tr key={teacher.id || teacher._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
                     className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                          {p?.firstName?.[0]}{p?.lastName?.[0]}
+                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase">
+                          {teacher.firstName?.[0]}{teacher.lastName?.[0]}
                         </div>
                         <div>
-                          <p className="font-medium text-foreground">{p?.firstName} {p?.lastName}</p>
+                          <p className="font-medium text-foreground">{teacher.firstName} {teacher.lastName}</p>
                           <p className="text-xs text-muted-foreground">{teacher.employeeId}</p>
                         </div>
                       </div>
@@ -223,7 +220,7 @@ export default function SalaryPage() {
           <PaySalaryModal teacher={selectedTeacher} onClose={() => { setSelectedTeacher(null); setShowPayForm(false); }} />
         )}
         {selectedTeacher && !showPayForm && (
-          <PaymentHistoryModal teacher={selectedTeacher} payments={(payments ?? []).filter((p: any) => p.teacherId?._id === selectedTeacher._id)} onClose={() => setSelectedTeacher(null)} />
+          <PaymentHistoryModal teacher={selectedTeacher} payments={(payments ?? []).filter((p: any) => p.teacherId?._id === (selectedTeacher.id || selectedTeacher._id))} onClose={() => setSelectedTeacher(null)} />
         )}
       </AnimatePresence>
     </div>
@@ -232,7 +229,6 @@ export default function SalaryPage() {
 
 function PaySalaryModal({ teacher, onClose }: { teacher: any; onClose: () => void }) {
   const addPayment = useAddSalaryPayment();
-  const p = teacher.userId;
   const [form, setForm] = useState({
     amount: String(teacher.salaryAmount || ''),
     paymentMode: 'bank_transfer',
@@ -248,7 +244,7 @@ function PaySalaryModal({ teacher, onClose }: { teacher: any; onClose: () => voi
     if (!amount || amount <= 0) { toast.error('Enter a valid amount'); return; }
     addPayment.mutate(
       {
-        teacherId: teacher._id,
+        teacherId: teacher.id || teacher._id,
         amount,
         paymentMode: form.paymentMode,
         paymentDate: form.paymentDate,
@@ -268,7 +264,7 @@ function PaySalaryModal({ teacher, onClose }: { teacher: any; onClose: () => voi
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-lg font-display font-bold text-foreground">Pay Salary</h2>
-            <p className="text-sm text-muted-foreground">{p?.firstName} {p?.lastName} · {teacher.employeeId}</p>
+            <p className="text-sm text-muted-foreground">{teacher.firstName} {teacher.lastName} · {teacher.employeeId}</p>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
@@ -334,7 +330,6 @@ function PaySalaryModal({ teacher, onClose }: { teacher: any; onClose: () => voi
 }
 
 function PaymentHistoryModal({ teacher, payments, onClose }: { teacher: any; payments: any[]; onClose: () => void }) {
-  const p = teacher.userId;
   const totalPaid = payments.reduce((s, pay) => s + Number(pay.amount), 0);
 
   return (
@@ -345,7 +340,7 @@ function PaymentHistoryModal({ teacher, payments, onClose }: { teacher: any; pay
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-lg font-display font-bold text-foreground">Payment History</h2>
-            <p className="text-sm text-muted-foreground">{p?.firstName} {p?.lastName} · Total Paid: <span className="text-success font-medium">₹{totalPaid.toLocaleString()}</span></p>
+            <p className="text-sm text-muted-foreground">{teacher.firstName} {teacher.lastName} · Total Paid: <span className="text-success font-medium">₹{totalPaid.toLocaleString()}</span></p>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>

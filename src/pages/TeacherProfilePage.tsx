@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, User, Mail, Phone, Briefcase, GraduationCap, Calendar } from 'lucide-react';
+import { Loader2, User, Mail, Phone, Briefcase, GraduationCap, Calendar, CheckCircle2 } from 'lucide-react';
 
 function useTeacherProfile() {
   const { user } = useAuth();
@@ -43,11 +43,16 @@ export default function TeacherProfilePage() {
 
       <div className="bg-card rounded-xl border border-border p-6">
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl">
-            {profile.firstName[0]}{profile.lastName[0]}
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+            <User className="w-8 h-8" />
           </div>
           <div>
-            <h2 className="text-xl font-display font-bold text-foreground">{profile.firstName} {profile.lastName}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-display font-bold text-foreground">{profile.firstName} {profile.lastName}</h2>
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/10 text-success text-[10px] font-bold uppercase tracking-wider">
+                <CheckCircle2 className="w-3 h-3" /> Active
+              </span>
+            </div>
             <p className="text-sm text-muted-foreground">Teacher</p>
           </div>
         </div>

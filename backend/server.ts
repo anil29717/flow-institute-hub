@@ -63,8 +63,8 @@ mongoose.connect(MONGO_URI)
                 // but pinging localhost directly from the server itself also works!
                 fetch(`http://localhost:${PORT}/api/health`)
                     .then(res => res.json())
-                    .then(data => console.log('✅ Self-ping successful:', data.status))
-                    .catch(err => console.error('❌ Self-ping failed:', err.message));
+                    .then(data => console.log(' Self-ping successful:', data.status))
+                    .catch(err => console.error(' Self-ping failed:', err.message));
             });
             console.log('⏱️  Keep-alive cron job initialized (runs every 10 mins).');
         });

@@ -4,10 +4,13 @@ import { api } from '@/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, CheckCircle, XCircle, Users, Calendar, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { TeacherAttendanceCalendar } from '@/components/attendance/TeacherAttendanceCalendar';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function AttendancePage() {
   const { user } = useAuth();
   const isOwner = user?.role === 'owner';
+  const queryClient = useQueryClient();
 
   const [batches, setBatches] = useState<any[]>([]);
   const [allStudents, setAllStudents] = useState<any[]>([]);
@@ -42,10 +45,13 @@ export default function AttendancePage() {
       setAllStudents(sRes);
       if (isOwner) setTeachers(tRes);
 
-      // compute global stats manually from API response as no dedicated stats EP right now
-      const present = attRes.filter((a: any) => a.status === 'present').length;
-      const absent = attRes.filter((a: any) => a.status === 'absent').length;
-      setStats({ total: attRes.length, present, absent });
+      // compute global stats manually for TODAY
+      const todayStr = new Date().toISOString().split('T')[0];
+      const todayAtt = attRes.filter((a: any) => new Date(a.date).toISOString().split('T')[0] === todayStr);
+
+      const present = todayAtt.filter((a: any) => a.status === 'present').length;
+      const absent = todayAtt.filter((a: any) => a.status === 'absent').length;
+      setStats({ total: todayAtt.length, present, absent });
     } catch (e: any) {
       toast.error('Failed to load initial data');
     } finally {
@@ -65,9 +71,11 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (teacherDate && isOwner) {
-      // No teacher attendance endpoint exists in current backend (just student attendance). 
-      // We will fallback to empty array for now logic-wise to avoid crash
-      setExistingTeacherAttendance([]);
+      api.get(`/attendance?isTeacher=true&date=${teacherDate}`).then(res => {
+        // Double check filtering locally to ensure we map properly
+        const filtered = Array.isArray(res) ? res.filter((a: any) => a.teacherId && (new Date(a.date).toISOString().split('T')[0] === teacherDate)) : [];
+        setExistingTeacherAttendance(filtered);
+      }).catch(() => setExistingTeacherAttendance([]));
     }
   }, [teacherDate, isOwner]);
 
@@ -139,8 +147,24 @@ export default function AttendancePage() {
 
   const handleSaveTeachers = async () => {
     if (!teachers) return;
-    // We don't have a teacher attendance API route in Node yet.
-    toast.error('Teacher attendance saving is not yet implemented on the backend API');
+    setSavingTeachers(true);
+    try {
+      const promises = teachers.map(t => api.post('/attendance', {
+        teacherId: t.id || t._id,
+        date: teacherDate,
+        status: teacherMap[t.id || t._id] || 'present'
+      }));
+      await Promise.all(promises);
+      toast.success('Teacher attendance saved!');
+
+      // Invalidate the teacher_attendance query key to instantly re-fetch calendar
+      queryClient.invalidateQueries({ queryKey: ['teacher_attendance'] });
+
+    } catch (e: any) {
+      toast.error('Failed to save teacher attendance');
+    } finally {
+      setSavingTeachers(false);
+    }
   };
 
   if (loading) {
@@ -159,68 +183,76 @@ export default function AttendancePage() {
       {/* Overall stats — Owner only */}
       {isOwner && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatCard icon={Users} label="Total Records" value={stats?.total ?? 0} color="bg-primary/10 text-primary" />
-          <StatCard icon={CheckCircle} label="Present" value={stats?.present ?? 0} color="bg-success/10 text-success" />
-          <StatCard icon={XCircle} label="Absent" value={stats?.absent ?? 0} color="bg-destructive/10 text-destructive" />
+          <StatCard icon={Users} label="Marked Today" value={stats?.total ?? 0} color="bg-primary/10 text-primary" />
+          <StatCard icon={CheckCircle} label="Present Today" value={stats?.present ?? 0} color="bg-success/10 text-success" />
+          <StatCard icon={XCircle} label="Absent Today" value={stats?.absent ?? 0} color="bg-destructive/10 text-destructive" />
           <StatCard icon={UserCheck} label="Teachers" value={teachers?.length ?? 0} color="bg-accent/10 text-accent" />
         </div>
       )}
 
-      {/* Teacher Attendance — Owner only */}
+      {/* Teacher Section — Owner only */}
       {isOwner && (
-        <div className="bg-card rounded-xl border border-border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display font-semibold text-foreground flex items-center gap-2">
-              <UserCheck className="w-4 h-4 text-accent" /> Teacher Attendance
-            </h3>
-            <input type="date" value={teacherDate} onChange={e => setTeacherDate(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          {/* Left Side: Teacher Marking */}
+          <div className="xl:col-span-8 bg-card rounded-xl border border-border p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-semibold text-foreground flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-accent" /> Teacher Attendance
+              </h3>
+              <input type="date" value={teacherDate} onChange={e => setTeacherDate(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            </div>
+
+            {(teachers ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No teachers found</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-4 mb-3 text-sm">
+                  <span className="text-success font-medium">Present: {tPresentCount}</span>
+                  <span className="text-destructive font-medium">Absent: {tAbsentCount}</span>
+                  <span className="text-muted-foreground">/ {teachers?.length ?? 0} teachers</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {(teachers ?? []).map((teacher, i) => {
+                    const status = teacherMap[teacher.id || teacher._id] || 'present';
+                    return (
+                      <motion.div key={teacher.id || teacher._id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                        className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm uppercase">
+                            {teacher.firstName?.[0]}{teacher.lastName?.[0]}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{teacher.firstName} {teacher.lastName}</p>
+                            <p className="text-xs text-muted-foreground">{teacher.employeeId}</p>
+                          </div>
+                        </div>
+                        <button onClick={() => toggleTeacherStatus(teacher.id || teacher._id)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${status === 'present' ? 'bg-success/10 text-success hover:bg-success/20' :
+                            status === 'absent' ? 'bg-destructive/10 text-destructive hover:bg-destructive/20' :
+                              'bg-warning/10 text-warning hover:bg-warning/20'
+                            }`}>
+                          {status === 'present' ? '✓ Present' : status === 'absent' ? '✗ Absent' : '⏱ Late'}
+                        </button>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                <button onClick={handleSaveTeachers} disabled={savingTeachers}
+                  className="mt-4 w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {savingTeachers && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Save Teacher Attendance
+                </button>
+              </>
+            )}
           </div>
 
-          {(teachers ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No teachers found</p>
-          ) : (
-            <>
-              <div className="flex items-center gap-4 mb-3 text-sm">
-                <span className="text-success font-medium">Present: {tPresentCount}</span>
-                <span className="text-destructive font-medium">Absent: {tAbsentCount}</span>
-                <span className="text-muted-foreground">/ {teachers?.length ?? 0} teachers</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                {(teachers ?? []).map((teacher, i) => {
-                  const status = teacherMap[teacher.id || teacher._id] || 'present';
-                  return (
-                    <motion.div key={teacher.id || teacher._id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-                      className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                          {teacher.firstName?.[0]}{teacher.lastName?.[0]}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{teacher.firstName} {teacher.lastName}</p>
-                          <p className="text-xs text-muted-foreground">{teacher.employeeId}</p>
-                        </div>
-                      </div>
-                      <button onClick={() => toggleTeacherStatus(teacher.id || teacher._id)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${status === 'present' ? 'bg-success/10 text-success hover:bg-success/20' :
-                          status === 'absent' ? 'bg-destructive/10 text-destructive hover:bg-destructive/20' :
-                            'bg-warning/10 text-warning hover:bg-warning/20'
-                          }`}>
-                        {status === 'present' ? '✓ Present' : status === 'absent' ? '✗ Absent' : '⏱ Late'}
-                      </button>
-                    </motion.div>
-                  );
-                })}
-              </div>
-
-              <button onClick={handleSaveTeachers} disabled={savingTeachers}
-                className="mt-4 w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
-                {savingTeachers && <Loader2 className="w-4 h-4 animate-spin" />}
-                Save Teacher Attendance
-              </button>
-            </>
-          )}
+          {/* Right Side: Calendar Overview */}
+          <div className="xl:col-span-4">
+            <TeacherAttendanceCalendar role="owner" />
+          </div>
         </div>
       )}
 

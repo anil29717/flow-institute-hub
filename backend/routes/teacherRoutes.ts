@@ -66,7 +66,10 @@ router.get('/', verifyToken, async (req: AuthRequest, res) => {
             specialization: t.specialization,
             experienceYears: t.experienceYears,
             isActive: t.userId?.isActive,
-            instituteName: t.instituteId?.name
+            instituteName: t.instituteId?.name,
+            salaryAmount: t.salaryAmount,
+            salaryType: t.salaryType,
+            paymentFrequency: t.paymentFrequency
         }));
 
         res.json(formatted);
@@ -103,6 +106,46 @@ router.post('/', verifyToken, requireOwner, async (req: AuthRequest, res) => {
         await teacher.save();
 
         res.json({ success: true, teacher });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT update teacher details (Owner only)
+router.put('/:id', verifyToken, requireOwner, async (req: AuthRequest, res) => {
+    try {
+        const { id } = req.params;
+        const { email, phone, salaryAmount, salaryType, paymentFrequency, experienceYears } = req.body;
+
+        const teacher = await Teacher.findById(id);
+        if (!teacher || teacher.instituteId.toString() !== req.user?.instituteId) {
+            return res.status(404).json({ error: 'Teacher not found' });
+        }
+
+        // Update User part (email, phone)
+        const updateUserData: any = {};
+        if (email !== undefined) updateUserData.email = email;
+        if (phone !== undefined) updateUserData.phone = phone;
+
+        if (Object.keys(updateUserData).length > 0) {
+            const existingEmail = await User.findOne({ email, _id: { $ne: teacher.userId } });
+            if (existingEmail) return res.status(400).json({ error: 'Email already exists.' });
+
+            await User.findByIdAndUpdate(teacher.userId, updateUserData);
+        }
+
+        // Update Teacher part (salary, experience)
+        const updateTeacherData: any = {};
+        if (salaryAmount !== undefined) updateTeacherData.salaryAmount = salaryAmount;
+        if (salaryType !== undefined) updateTeacherData.salaryType = salaryType;
+        if (paymentFrequency !== undefined) updateTeacherData.paymentFrequency = paymentFrequency;
+        if (experienceYears !== undefined) updateTeacherData.experienceYears = experienceYears;
+
+        if (Object.keys(updateTeacherData).length > 0) {
+            await Teacher.findByIdAndUpdate(id, updateTeacherData);
+        }
+
+        res.json({ success: true });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }

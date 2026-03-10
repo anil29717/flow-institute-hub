@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { useBatches, useStudents } from '@/hooks/useSupabaseData';
+import { useBatches, useStudents } from '@/hooks/useApiData';
 import { useCreateTest } from '@/hooks/useTestsData';
 import { Loader2, X, ChevronDown } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';

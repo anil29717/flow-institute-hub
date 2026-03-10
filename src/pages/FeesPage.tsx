@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useStudents } from '@/hooks/useSupabaseData';
+import { useStudents } from '@/hooks/useApiData';
 import { api } from '@/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { IndianRupee, TrendingUp, AlertTriangle, CheckCircle, Loader2, X, Clock, CreditCard } from 'lucide-react';
@@ -20,7 +20,13 @@ function useAddPayment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payment: { studentId: string; amount: number; paymentMode: string; paymentDate: string; notes?: string }) => {
-      const data = await api.post('/fees/pay', payment);
+      const data = await api.post('/fees', {
+        studentId: payment.studentId,
+        amount: payment.amount,
+        paymentMode: payment.paymentMode,
+        paymentDate: payment.paymentDate,
+        remarks: payment.notes
+      });
       return data;
     },
     onSuccess: () => {

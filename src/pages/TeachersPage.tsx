@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/api/client';
-import { Search, Plus, Mail, Phone, Loader2, X, IndianRupee, CalendarIcon, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Mail, Phone, Loader2, X, IndianRupee, CalendarIcon, ChevronRight, AlertTriangle, Edit2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUpdateTeacher } from '@/hooks/useApiData';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
 
@@ -86,8 +87,8 @@ export default function TeachersPage() {
       {/* Plan usage banner */}
       {isOwner && planLimits?.hasPlan && (
         <div className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm ${planLimits.isExpired ? 'bg-destructive/10 border-destructive/30 text-destructive' :
-            !planLimits.canAddTeacher ? 'bg-warning/10 border-warning/30 text-warning' :
-              'bg-muted border-border text-muted-foreground'
+          !planLimits.canAddTeacher ? 'bg-warning/10 border-warning/30 text-warning' :
+            'bg-muted border-border text-muted-foreground'
           }`}>
           {(planLimits.isExpired || !planLimits.canAddTeacher) && <AlertTriangle className="w-4 h-4 flex-shrink-0" />}
           <span>
@@ -175,8 +176,21 @@ export default function TeachersPage() {
 }
 
 function TeacherDetailModal({ teacher, onClose }: { teacher: any; onClose: () => void }) {
+  const { user } = useAuth();
+  const updateTeacher = useUpdateTeacher();
   const [attendance, setAttendance] = useState<any[]>([]);
   const [loadingObj, setLoading] = useState(true);
+
+  // Edit State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    email: teacher.email || '',
+    phone: teacher.phone || '',
+    experienceYears: teacher.experienceYears || 0,
+    salaryAmount: teacher.salaryAmount || 0,
+    salaryType: teacher.salaryType || 'per_month',
+    paymentFrequency: teacher.paymentFrequency || 'monthly'
+  });
 
   // Currently we only implemented /attendance for students, but in theory we'd hit /attendance/teacher or similar
   useEffect(() => {
@@ -190,13 +204,41 @@ function TeacherDetailModal({ teacher, onClose }: { teacher: any; onClose: () =>
   const salaryTypeLabel: Record<string, string> = { per_hour: 'Per Hour', per_day: 'Per Day', per_month: 'Per Month' };
   const freqLabel: Record<string, string> = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', custom: 'Custom' };
 
+  const handleSave = async () => {
+    try {
+      await updateTeacher.mutateAsync({
+        id: teacher.id,
+        data: {
+          email: editForm.email,
+          phone: editForm.phone || undefined,
+          experienceYears: Number(editForm.experienceYears),
+          salaryAmount: Number(editForm.salaryAmount),
+          salaryType: editForm.salaryType,
+          paymentFrequency: editForm.paymentFrequency
+        }
+      });
+      setIsEditing(false);
+      onClose(); // Close to refresh data from parent
+    } catch (e) {
+      // Error handled by hook
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
         className="bg-card rounded-xl border border-border p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-display font-bold text-foreground">Teacher Details</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-display font-bold text-foreground">Teacher Details</h2>
+            {user?.role === 'owner' && !isEditing && (
+              <button onClick={() => setIsEditing(true)}
+                className="ml-2 flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors">
+                <Edit2 className="w-3 h-3" /> Edit
+              </button>
+            )}
+          </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
 
@@ -210,21 +252,72 @@ function TeacherDetailModal({ teacher, onClose }: { teacher: any; onClose: () =>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <InfoItem label="Email" value={teacher.email} />
-          <InfoItem label="Phone" value={teacher.phone || '—'} />
-          <InfoItem label="Experience" value={`${teacher.experienceYears ?? 0} years`} />
-        </div>
+        {isEditing ? (
+          <div className="space-y-4 mb-5">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Email" type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} required />
+              <Field label="Phone" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })} />
+            </div>
+            <Field label="Experience (Years)" type="number" value={editForm.experienceYears} onChange={e => setEditForm({ ...editForm, experienceYears: Number(e.target.value) })} />
 
-        {/* Salary Info */}
-        <div className="bg-muted/50 rounded-lg p-4 mb-5">
-          <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><IndianRupee className="w-4 h-4" /> Salary</h3>
-          <div className="grid grid-cols-3 gap-3 text-sm">
-            <div><span className="text-muted-foreground text-xs">Amount</span><p className="font-medium text-foreground">₹{Number(teacher.salaryAmount || 0).toLocaleString()}</p></div>
-            <div><span className="text-muted-foreground text-xs">Type</span><p className="font-medium text-foreground">{salaryTypeLabel[teacher.salaryType] || 'Per Month'}</p></div>
-            <div><span className="text-muted-foreground text-xs">Payment</span><p className="font-medium text-foreground">{freqLabel[teacher.paymentFrequency] || 'Monthly'}</p></div>
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><IndianRupee className="w-4 h-4" /> Edit Salary</h3>
+              <Field label="Salary Amount (₹)" type="number" value={editForm.salaryAmount} onChange={e => setEditForm({ ...editForm, salaryAmount: Number(e.target.value) })} />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1 block">Salary Type</label>
+                  <Select value={editForm.salaryType} onValueChange={v => setEditForm({ ...editForm, salaryType: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="per_hour">Per Hour</SelectItem>
+                      <SelectItem value="per_day">Per Day</SelectItem>
+                      <SelectItem value="per_month">Per Month</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1 block">Payment Freq</label>
+                  <Select value={editForm.paymentFrequency} onValueChange={v => setEditForm({ ...editForm, paymentFrequency: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2 border-t border-border">
+              <button onClick={() => setIsEditing(false)} className="flex-1 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
+              <button onClick={handleSave} disabled={updateTeacher.isPending} className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                {updateTeacher.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Save Changes
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <InfoItem label="Email" value={teacher.email} />
+              <InfoItem label="Phone" value={teacher.phone || '—'} />
+              <InfoItem label="Experience" value={`${teacher.experienceYears ?? 0} years`} />
+            </div>
+
+            {/* Salary Info */}
+            <div className="bg-muted/50 rounded-lg p-4 mb-5">
+              <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><IndianRupee className="w-4 h-4" /> Salary</h3>
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div><span className="text-muted-foreground text-xs">Amount</span><p className="font-medium text-foreground">₹{Number(teacher.salaryAmount || 0).toLocaleString()}</p></div>
+                <div><span className="text-muted-foreground text-xs">Type</span><p className="font-medium text-foreground">{salaryTypeLabel[teacher.salaryType] || 'Per Month'}</p></div>
+                <div><span className="text-muted-foreground text-xs">Payment</span><p className="font-medium text-foreground">{freqLabel[teacher.paymentFrequency] || 'Monthly'}</p></div>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Attendance */}
         <div>
@@ -244,8 +337,8 @@ function TeacherDetailModal({ teacher, onClose }: { teacher: any; onClose: () =>
                 <div key={a.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/30 text-sm">
                   <span className="text-foreground">{format(new Date(a.date), 'MMM d, yyyy')}</span>
                   <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${a.status === 'present' ? 'bg-success/10 text-success' :
-                      a.status === 'absent' ? 'bg-destructive/10 text-destructive' :
-                        'bg-warning/10 text-warning'
+                    a.status === 'absent' ? 'bg-destructive/10 text-destructive' :
+                      'bg-warning/10 text-warning'
                     }`}>{a.status}</span>
                 </div>
               ))}

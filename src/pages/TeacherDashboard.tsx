@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Users, GraduationCap, Layers, CheckCircle, Calendar } from 'lucide-react';
+import { TeacherAttendanceCalendar } from '@/components/attendance/TeacherAttendanceCalendar';
 
 function useTeacherDashboard() {
   const { user } = useAuth();
@@ -20,14 +21,18 @@ function useTeacherDashboard() {
       ]);
 
       const today = new Date().toISOString().split('T')[0];
-      const batchIds = (batches ?? []).map((b: any) => b._id);
+      const batchIds = (batches ?? []).map((b: any) => String(b._id || b.id));
+
+      // Filter students to only those within the teacher's assigned batches
+      const teacherStudents = (students || []).filter((s: any) => batchIds.includes(String(s.batchId?._id || s.batchId)));
 
       const todayAttendance = (allAttendance ?? []).filter((a: any) => {
-        const aBatchId = typeof a.batchId === 'string' ? a.batchId : a.batchId?._id;
+        if (!a.studentId) return false; // ensure teacher counts only student attendance here
+        const aBatchId = String(a.batchId?._id || a.batchId);
         return batchIds.includes(aBatchId) && new Date(a.date).toISOString().split('T')[0] === today;
       });
 
-      return { teacher: user, batches: batches || [], students: students || [], todayAttendance, salaryPayments: salaryPayments || [] };
+      return { teacher: user, batches: batches || [], students: teacherStudents, todayAttendance, salaryPayments: salaryPayments || [] };
     },
     enabled: !!user?.id,
   });
@@ -75,54 +80,65 @@ export default function TeacherDashboard() {
         })}
       </div>
 
-      {/* My Batches */}
-      <div className="bg-card rounded-xl border border-border p-5">
-        <h3 className="font-display font-semibold text-foreground mb-4">My Batches</h3>
-        {batches.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">No batches assigned yet.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {batches.map((batch: any, i: number) => {
-              const batchStudents = students.filter((s: any) => s.batchId?._id === batch._id || s.batchId === batch._id);
-              return (
-                <motion.div key={batch._id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  className="p-4 rounded-lg border border-border hover:bg-muted/30 transition-colors">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-foreground">{batch.name}</h4>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${batch.status === 'ongoing' ? 'bg-success/10 text-success' :
-                      batch.status === 'upcoming' ? 'bg-warning/10 text-warning' :
-                        'bg-muted text-muted-foreground'
-                      }`}>{batch.status}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{batch.courseId?.name || 'No course'}</p>
-                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                    <Users className="w-3.5 h-3.5" />
-                    <span>{batchStudents.length} students</span>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Recent Salary */}
-      {salaryPayments.length > 0 && (
-        <div className="bg-card rounded-xl border border-border p-5">
-          <h3 className="font-display font-semibold text-foreground mb-4">Recent Salary Payments</h3>
-          <div className="space-y-2">
-            {salaryPayments.map((pay: any) => (
-              <div key={pay._id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
-                <div>
-                  <p className="text-sm font-medium text-foreground">₹{Number(pay.amount).toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">{pay.month} {pay.year} · {pay.paymentMode?.replace('_', ' ')}</p>
-                </div>
-                <span className="text-xs text-success font-medium">Paid</span>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        {/* Main Content */}
+        <div className="xl:col-span-8 space-y-6">
+          {/* My Batches */}
+          <div className="bg-card rounded-xl border border-border p-5">
+            <h3 className="font-display font-semibold text-foreground mb-4">My Batches</h3>
+            {batches.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No batches assigned yet.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {batches.map((batch: any, i: number) => {
+                  const batchIdStr = String(batch._id || batch.id);
+                  const batchStudents = students.filter((s: any) => String(s.batchId?._id || s.batchId) === batchIdStr);
+                  return (
+                    <motion.div key={batch._id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                      className="p-4 rounded-lg border border-border hover:bg-muted/30 transition-colors">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-foreground">{batch.name}</h4>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${batch.status === 'ongoing' ? 'bg-success/10 text-success' :
+                          batch.status === 'upcoming' ? 'bg-warning/10 text-warning' :
+                            'bg-muted text-muted-foreground'
+                          }`}>{batch.status}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{batch.courseId?.name || 'No course'}</p>
+                      <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                        <Users className="w-3.5 h-3.5" />
+                        <span>{batchStudents.length} students</span>
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
-            ))}
+            )}
           </div>
+
+          {/* Recent Salary */}
+          {salaryPayments.length > 0 && (
+            <div className="bg-card rounded-xl border border-border p-5">
+              <h3 className="font-display font-semibold text-foreground mb-4">Recent Salary Payments</h3>
+              <div className="space-y-2">
+                {salaryPayments.map((pay: any) => (
+                  <div key={pay._id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">₹{Number(pay.amount).toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">{pay.month} {pay.year} · {pay.paymentMode?.replace('_', ' ')}</p>
+                    </div>
+                    <span className="text-xs text-success font-medium">Paid</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Sidebar */}
+        <div className="xl:col-span-4">
+          <TeacherAttendanceCalendar role="teacher" />
+        </div>
+      </div>
     </div>
   );
 }

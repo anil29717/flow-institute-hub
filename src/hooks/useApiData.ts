@@ -10,6 +10,18 @@ export function useTeachers() {
   });
 }
 
+export function useUpdateTeacher() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.put(`/teachers/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['teachers'] });
+      toast.success('Teacher updated successfully');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
 // ─── Courses ───
 export function useCourses() {
   return useQuery({
@@ -125,6 +137,27 @@ export function useInstitute(instituteId: string | null) {
     queryKey: ['institute', instituteId],
     queryFn: () => api.get('/institutes/my-institute').then((res: any) => res._id), // Returns instituteId
     enabled: !!instituteId,
+  });
+}
+
+export function useInstituteDetails(instituteId: string | null) {
+  return useQuery({
+    queryKey: ['institute_details', instituteId],
+    queryFn: () => api.get('/institutes/my-institute'),
+    enabled: !!instituteId,
+  });
+}
+
+export function useUpdateInstitute() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; phone?: string; address?: string; email?: string }) =>
+      api.put('/institutes/my-institute', data),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ['institute_details'] });
+      toast.success('Institute details updated');
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 }
 

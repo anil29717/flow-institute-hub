@@ -20,7 +20,6 @@ export default function RegisterPage() {
     ownerPassword: '',
     confirmPassword: '',
     instituteName: '',
-    code: '',
     instituteEmail: '',
     phone: '',
     address: '',
@@ -40,8 +39,8 @@ export default function RegisterPage() {
       toast.error('Password must be at least 6 characters');
       return;
     }
-    if (!form.instituteName.trim() || !form.code.trim()) {
-      toast.error('Institute name and code are required');
+    if (!form.instituteName.trim()) {
+      toast.error('Institute name is required');
       return;
     }
 
@@ -49,7 +48,6 @@ export default function RegisterPage() {
     try {
       await api.post('/auth/register-owner', {
         instituteName: form.instituteName.trim(),
-        code: form.code.trim().toUpperCase(),
         address: form.address.trim(),
         phone: form.phone.trim(),
         instituteEmail: form.instituteEmail.trim(),
@@ -175,13 +173,9 @@ export default function RegisterPage() {
                 Institute Details
               </h3>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 col-span-2">
                   <Label className="text-xs">Institute Name *</Label>
                   <Input value={form.instituteName} onChange={update('instituteName')} required placeholder="Excel Academy" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Institute Code *</Label>
-                  <Input value={form.code} onChange={update('code')} required placeholder="EXL" maxLength={10} className="uppercase" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 mt-3">

@@ -96,12 +96,17 @@ router.get('/institutes/:id/plan-history', async (req, res) => {
 router.post('/institutes', async (req, res) => {
     try {
         const {
-            instituteName, code, address, phone, instituteEmail,
+            instituteName, address, phone, instituteEmail,
             ownerEmail, ownerPassword, ownerFirstName, ownerLastName
         } = req.body;
 
-        const existingInst = await Institute.findOne({ code });
-        if (existingInst) return res.status(400).json({ error: 'Institute code already taken' });
+        let code = '';
+        let isUnique = false;
+        while (!isUnique) {
+            code = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const existingInst = await Institute.findOne({ code });
+            if (!existingInst) isUnique = true;
+        }
 
         const existingUser = await User.findOne({ email: ownerEmail });
         if (existingUser) return res.status(400).json({ error: 'Email already registered' });

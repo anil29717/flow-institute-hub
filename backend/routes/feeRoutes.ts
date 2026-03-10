@@ -28,11 +28,11 @@ router.get('/', verifyToken, async (req: AuthRequest, res) => {
 
 router.post('/', verifyToken, requireOwner, async (req: AuthRequest, res) => {
     try {
-        const { studentId, amount, paymentMode, referenceNo, remarks } = req.body;
+        const { studentId, amount, paymentMode, paymentDate, referenceNo, remarks } = req.body;
 
         const payment = new FeePayment({
             instituteId: req.user?.instituteId,
-            studentId, amount, paymentMode, referenceNo, remarks,
+            studentId, amount, paymentMode, paymentDate, referenceNo, remarks,
             collectedBy: req.user?.userId
         });
 

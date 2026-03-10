@@ -376,7 +376,7 @@ function AddInstituteModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    instituteName: '', code: '', address: '', phone: '', instituteEmail: '',
+    instituteName: '', address: '', phone: '', instituteEmail: '',
     ownerEmail: '', ownerPassword: '', ownerFirstName: '', ownerLastName: '',
   });
 
@@ -410,9 +410,8 @@ function AddInstituteModal({ onClose }: { onClose: () => void }) {
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <p className="text-sm font-medium text-muted-foreground border-b border-border pb-2">Institute Details</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 mb-3">
             <FormField label="Institute Name" value={form.instituteName} onChange={set('instituteName')} required />
-            <FormField label="Code" value={form.code} onChange={set('code')} required placeholder="e.g. INST-001" />
           </div>
           <FormField label="Address" value={form.address} onChange={set('address')} placeholder="Optional" />
           <div className="grid grid-cols-2 gap-3">
