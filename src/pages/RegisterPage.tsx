@@ -7,6 +7,7 @@ import { api } from '@/api/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { SEO } from "@/components/seo/SEO";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -86,6 +87,10 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-background flex">
+      <SEO
+        title="Register Your Institute - InstiFlow"
+        description="Join 500+ institutes across India that trust InstiFlow. Register your coaching center or academy to start your free demo."
+      />
       {/* Left panel */}
       <div className="hidden lg:flex lg:w-2/5 stat-gradient-1 relative overflow-hidden items-center justify-center p-12">
         <div className="absolute inset-0 opacity-10">

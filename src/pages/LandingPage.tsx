@@ -4,6 +4,7 @@ import {
   GraduationCap, Users, IndianRupee, CalendarCheck, BarChart3, Shield,
   BookOpen, Clock, Bell, CheckCircle, ArrowRight, ChevronRight, Star, Zap
 } from 'lucide-react';
+import { SEO } from "@/components/seo/SEO";
 
 const fadeUp = { hidden: { y: 30, opacity: 0 }, visible: { y: 0, opacity: 1 } };
 
@@ -31,6 +32,10 @@ const testimonials = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background overflow-hidden">
+      <SEO
+        title="InstiFlow - #1 Institute Management Software | Educational ERP"
+        description="Transform your institute with InstiFlow's comprehensive management system. Manage students, teachers, fees, attendance & academics with role-based access. Trusted by 500+ institutes. Book demo!"
+      />
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -189,9 +194,8 @@ export default function LandingPage() {
             {plans.map((plan, i) => (
               <motion.div key={plan.name} initial="hidden" whileInView="visible" viewport={{ once: true }}
                 variants={fadeUp} transition={{ delay: i * 0.1 }}
-                className={`bg-card rounded-2xl border p-6 flex flex-col relative ${
-                  plan.popular ? 'border-primary shadow-xl shadow-primary/10 ring-1 ring-primary/20' : 'border-border'
-                }`}>
+                className={`bg-card rounded-2xl border p-6 flex flex-col relative ${plan.popular ? 'border-primary shadow-xl shadow-primary/10 ring-1 ring-primary/20' : 'border-border'
+                  }`}>
                 {plan.popular && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
                     Most Popular
@@ -214,11 +218,10 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <Link to="/login"
-                  className={`w-full py-2.5 rounded-lg text-sm font-semibold text-center transition-all ${
-                    plan.popular
+                  className={`w-full py-2.5 rounded-lg text-sm font-semibold text-center transition-all ${plan.popular
                       ? 'bg-primary text-primary-foreground hover:opacity-90'
                       : 'border border-border text-foreground hover:bg-muted'
-                  }`}>
+                    }`}>
                   Get Started
                 </Link>
               </motion.div>

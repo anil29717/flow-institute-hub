@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { SEO } from "@/components/seo/SEO";
 
 type AppRole = 'owner' | 'teacher';
 type Mode = 'select' | 'login';
@@ -38,7 +39,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     const { error } = await login(email, password);
     if (error) {
       if (error === 'NO_ACTIVE_PLAN') {
@@ -55,6 +56,10 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex">
+      <SEO
+        title="Login to InstiFlow - Institute Dashboard"
+        description="Access your InstiFlow dashboard to manage your institute's students, teachers, fees, and attendance."
+      />
       {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 stat-gradient-1 relative overflow-hidden items-center justify-center p-12">
         <div className="absolute inset-0 opacity-10">
