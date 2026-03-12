@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { Building2, Users, Plus, Loader2, X, Search, CheckCircle, CreditCard, History, Key } from 'lucide-react';
+import { Building2, Users, Plus, Loader2, X, Search, CheckCircle, CreditCard, History, Key, ArrowUpRight, Sparkles, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -42,21 +42,25 @@ export default function AdminDashboard() {
   );
 
   const statCards = [
-    { label: 'Total Institutes', value: stats?.totalInstitutes ?? 0, icon: Building2, color: 'stat-gradient-1' },
-    { label: 'Total Teachers', value: stats?.totalTeachers ?? 0, icon: Users, color: 'stat-gradient-2' },
+    { label: 'Total Institutes', value: stats?.totalInstitutes ?? 0, icon: Building2, color: 'stat-gradient-1', trend: 'Active' },
+    { label: 'Total Teachers', value: stats?.totalTeachers ?? 0, icon: Users, color: 'stat-gradient-2', trend: 'Across all' },
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-foreground">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage all institutes and teachers</p>
-        </div>
-        <button onClick={() => setShowForm(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">Admin Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Manage all institutes, plans, and users</p>
+        </motion.div>
+        <motion.button
+          whileHover={{ scale: 1.03, y: -1 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setShowForm(true)}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-medium text-sm hover:shadow-lg hover:shadow-primary/20 transition-shadow"
+        >
           <Plus className="w-4 h-4" /> Add Institute
-        </button>
+        </motion.button>
       </div>
 
       {/* Stats */}
@@ -64,16 +68,23 @@ export default function AdminDashboard() {
         {statCards.map((stat, i) => {
           const Icon = stat.icon;
           return (
-            <motion.div key={stat.label} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }}
-              className={`${stat.color} rounded-xl p-5 text-primary-foreground`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm opacity-80">{stat.label}</p>
-                  <p className="text-3xl font-bold mt-1">{stat.value}</p>
+            <motion.div key={stat.label}
+              initial={{ y: 25, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: i * 0.08 }}
+              whileHover={{ y: -4, scale: 1.02 }}
+              className={`${stat.color} rounded-xl p-5 text-primary-foreground cursor-default relative overflow-hidden group`}
+            >
+              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/5 rounded-full blur-xl group-hover:bg-white/10 transition-colors" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-lg bg-white/15 flex items-center justify-center backdrop-blur-sm">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-medium bg-white/15 px-2 py-0.5 rounded-full">{stat.trend}</span>
                 </div>
-                <div className="w-12 h-12 rounded-xl bg-primary-foreground/20 flex items-center justify-center">
-                  <Icon className="w-6 h-6" />
-                </div>
+                <p className="text-3xl font-display font-bold mt-3">{stat.value}</p>
+                <p className="text-sm opacity-80">{stat.label}</p>
               </div>
             </motion.div>
           );
@@ -84,15 +95,21 @@ export default function AdminDashboard() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input type="text" placeholder="Search institutes..." value={search} onChange={e => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-input bg-card/80 backdrop-blur-sm text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all" />
       </div>
 
       {/* Institutes List */}
       {loadingInstitutes ? (
-        <div className="flex items-center justify-center h-32"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+        <div className="flex items-center justify-center h-32">
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+            <Loader2 className="w-8 h-8 text-primary" />
+          </motion.div>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          <Building2 className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}>
+            <Building2 className="w-12 h-12 mx-auto mb-3 opacity-40" />
+          </motion.div>
           <p className="text-lg font-medium">No institutes found</p>
           <p className="text-sm mt-1">Create your first institute to get started</p>
         </div>
@@ -106,8 +123,12 @@ export default function AdminDashboard() {
             const isExpired = inst.planExpiresAt ? new Date(inst.planExpiresAt) < new Date() : false;
 
             return (
-              <motion.div key={inst._id} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.05 }}
-                className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-shadow">
+              <motion.div key={inst._id}
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: i * 0.04 }}
+                whileHover={{ y: -4, scale: 1.01 }}
+                className="bg-card/80 backdrop-blur-sm rounded-xl border border-border p-5 hover:shadow-xl hover:border-primary/15 transition-all duration-300 cursor-default group">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">

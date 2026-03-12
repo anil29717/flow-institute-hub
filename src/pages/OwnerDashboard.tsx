@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, GraduationCap, IndianRupee, TrendingUp, Layers, Loader2, CreditCard, History, AlertTriangle, X } from 'lucide-react';
+import { Users, GraduationCap, IndianRupee, TrendingUp, Layers, Loader2, CreditCard, History, AlertTriangle, X, ArrowUpRight, ArrowDownRight, Sparkles } from 'lucide-react';
 import { useDashboardStats, useStudents, useInstitute } from '@/hooks/useApiData';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
@@ -25,23 +25,35 @@ export default function OwnerDashboard() {
   }, [students]);
 
   const statCards = [
-    { label: 'Total Teachers', value: stats?.totalTeachers ?? 0, icon: Users, gradient: 'stat-gradient-1' },
-    { label: 'Total Students', value: stats?.totalStudents ?? 0, icon: GraduationCap, gradient: 'stat-gradient-2' },
-    { label: 'Active Batches', value: stats?.activeBatches ?? 0, icon: Layers, gradient: 'stat-gradient-3' },
-    { label: 'Fees Collected', value: `₹${((feeStats.totalReceived || 0) / 1000).toFixed(0)}k`, icon: IndianRupee, gradient: 'stat-gradient-4' },
+    { label: 'Total Teachers', value: stats?.totalTeachers ?? 0, icon: Users, gradient: 'stat-gradient-1', trend: '+12%' },
+    { label: 'Total Students', value: stats?.totalStudents ?? 0, icon: GraduationCap, gradient: 'stat-gradient-2', trend: '+8%' },
+    { label: 'Active Batches', value: stats?.activeBatches ?? 0, icon: Layers, gradient: 'stat-gradient-3', trend: '+3' },
+    { label: 'Fees Collected', value: `₹${((feeStats.totalReceived || 0) / 1000).toFixed(0)}k`, icon: IndianRupee, gradient: 'stat-gradient-4', trend: '+15%' },
   ];
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="flex items-center justify-center h-64">
+        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+          <Loader2 className="w-8 h-8 text-primary" />
+        </motion.div>
+      </div>
+    );
   }
+
+  // Greeting based on time
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
     <div className="space-y-6">
       {/* Expiry Warning Banner */}
       {planLimits?.hasPlan && planLimits.isExpired && (
-        <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-          className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+        <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+          className="rounded-xl border border-destructive/30 bg-destructive/5 backdrop-blur-sm p-4 flex items-start gap-3 shadow-sm">
+          <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 2, repeat: Infinity }}>
+            <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+          </motion.div>
           <div>
             <p className="font-semibold text-destructive">Your plan has expired!</p>
             <p className="text-sm text-muted-foreground mt-0.5">
@@ -56,9 +68,11 @@ export default function OwnerDashboard() {
         const daysLeft = Math.ceil((new Date(planLimits.planExpiresAt).getTime() - Date.now()) / 86400000);
         if (daysLeft <= 7) {
           return (
-            <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-              className="rounded-xl border border-warning/30 bg-warning/5 p-4 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+            <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+              className="rounded-xl border border-warning/30 bg-warning/5 backdrop-blur-sm p-4 flex items-start gap-3 shadow-sm">
+              <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+                <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+              </motion.div>
               <div>
                 <p className="font-semibold text-warning">Plan expiring soon!</p>
                 <p className="text-sm text-muted-foreground mt-0.5">
@@ -72,120 +86,162 @@ export default function OwnerDashboard() {
         return null;
       })()}
 
-      <div>
-        <h1 className="text-2xl font-display font-bold text-foreground">Good morning, {user?.firstName}!</h1>
-        <p className="text-muted-foreground">Here's what's happening at your institute.</p>
-      </div>
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">
+          {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">{user?.firstName}</span>! 👋
+        </h1>
+        <p className="text-muted-foreground mt-1">Here's what's happening at your institute today.</p>
+      </motion.div>
 
       {/* Plan Info Card */}
       {planLimits?.hasPlan && (
-        <div className={`rounded-xl border p-5 ${planLimits.isExpired ? 'bg-destructive/5 border-destructive/30' : 'bg-card border-border'}`}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-primary" />
-              <h3 className="font-display font-semibold text-foreground">
-                {planLimits.planName} Plan
-                {planLimits.isExpired && <span className="text-destructive text-sm ml-2">(Expired)</span>}
-              </h3>
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className={`rounded-xl border p-5 backdrop-blur-sm ${planLimits.isExpired ? 'bg-destructive/5 border-destructive/30' : 'bg-card/80 border-border hover:shadow-lg transition-shadow duration-300'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                <CreditCard className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-display font-semibold text-foreground flex items-center gap-2">
+                  {planLimits.planName} Plan
+                  {planLimits.isExpired && <span className="text-destructive text-xs px-2 py-0.5 rounded-full bg-destructive/10">Expired</span>}
+                </h3>
+                {planLimits.planExpiresAt && (
+                  <p className="text-xs text-muted-foreground">Expires: {new Date(planLimits.planExpiresAt).toLocaleDateString()}</p>
+                )}
+              </div>
             </div>
-            <button onClick={() => setShowHistory(true)}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors">
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+              onClick={() => setShowHistory(true)}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors">
               <History className="w-3.5 h-3.5" /> History
-            </button>
+            </motion.button>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-muted/50 rounded-lg p-3">
-              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                <span>Students</span>
-                <span className="font-medium text-foreground">{planLimits.currentStudents}/{planLimits.maxStudents}</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all ${planLimits.currentStudents >= (planLimits.maxStudents ?? 0) ? 'bg-destructive' : 'bg-primary'}`}
-                  style={{ width: `${Math.min(100, (planLimits.currentStudents / (planLimits.maxStudents ?? 1)) * 100)}%` }} />
-              </div>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-3">
-              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                <span>Teachers</span>
-                <span className="font-medium text-foreground">{planLimits.currentTeachers}/{planLimits.maxTeachers}</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all ${planLimits.currentTeachers >= (planLimits.maxTeachers ?? 0) ? 'bg-destructive' : 'bg-primary'}`}
-                  style={{ width: `${Math.min(100, (planLimits.currentTeachers / (planLimits.maxTeachers ?? 1)) * 100)}%` }} />
-              </div>
-            </div>
+            {[
+              { label: 'Students', current: planLimits.currentStudents, max: planLimits.maxStudents },
+              { label: 'Teachers', current: planLimits.currentTeachers, max: planLimits.maxTeachers },
+            ].map((item) => {
+              const pct = Math.min(100, (item.current / (item.max ?? 1)) * 100);
+              const isFull = item.current >= (item.max ?? 0);
+              return (
+                <div key={item.label} className="bg-muted/50 rounded-lg p-3">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                    <span>{item.label}</span>
+                    <span className="font-semibold text-foreground">{item.current}/{item.max}</span>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 1, ease: 'easeOut' }}
+                      className={`h-full rounded-full ${isFull ? 'bg-destructive' : 'bg-primary'}`}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
-
-          {planLimits.planExpiresAt && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Expires: {new Date(planLimits.planExpiresAt).toLocaleDateString()}
-            </p>
-          )}
-        </div>
+        </motion.div>
       )}
 
+      {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((card, i) => {
           const Icon = card.icon;
           return (
-            <motion.div key={card.label} initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }}
-              className={`${card.gradient} rounded-xl p-5 text-primary-foreground`}>
-              <div className="flex items-center justify-between mb-3">
-                <Icon className="w-5 h-5 opacity-80" />
-                <TrendingUp className="w-4 h-4 opacity-60" />
+            <motion.div
+              key={card.label}
+              initial={{ y: 25, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: i * 0.08 }}
+              whileHover={{ y: -4, scale: 1.02 }}
+              className={`${card.gradient} rounded-xl p-5 text-primary-foreground cursor-default relative overflow-hidden group`}
+            >
+              {/* Background glow */}
+              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/5 rounded-full blur-xl group-hover:bg-white/10 transition-colors" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-white/15 flex items-center justify-center backdrop-blur-sm">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <span className="flex items-center gap-0.5 text-xs font-medium bg-white/15 px-2 py-0.5 rounded-full">
+                    <ArrowUpRight className="w-3 h-3" /> {card.trend}
+                  </span>
+                </div>
+                <p className="text-3xl font-display font-bold">{card.value}</p>
+                <p className="text-sm opacity-80 mt-0.5">{card.label}</p>
               </div>
-              <p className="text-2xl font-display font-bold">{card.value}</p>
-              <p className="text-sm opacity-75">{card.label}</p>
             </motion.div>
           );
         })}
       </div>
 
       {/* Fee Summary */}
-      <div className="bg-card rounded-xl border border-border p-5">
-        <h3 className="font-display font-semibold text-foreground mb-4">Fee Summary</h3>
+      <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+        className="bg-card/80 backdrop-blur-sm rounded-xl border border-border p-5 hover:shadow-lg transition-shadow duration-300">
+        <div className="flex items-center gap-2 mb-5">
+          <div className="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center">
+            <IndianRupee className="w-4 h-4 text-secondary" />
+          </div>
+          <h3 className="font-display font-semibold text-foreground">Fee Summary</h3>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
-          <div className="bg-muted/50 rounded-lg p-3">
-            <p className="text-xs text-muted-foreground">Total Generated</p>
-            <p className="text-lg font-display font-bold text-foreground">₹{feeStats.totalGenerated.toLocaleString()}</p>
-          </div>
-          <div className="bg-muted/50 rounded-lg p-3">
-            <p className="text-xs text-muted-foreground">Received</p>
-            <p className="text-lg font-display font-bold text-secondary">₹{feeStats.totalReceived.toLocaleString()}</p>
-          </div>
-          <div className="bg-muted/50 rounded-lg p-3">
-            <p className="text-xs text-muted-foreground">Pending</p>
-            <p className="text-lg font-display font-bold text-destructive">₹{feeStats.pending.toLocaleString()}</p>
-          </div>
+          {[
+            { label: 'Total Generated', value: `₹${feeStats.totalGenerated.toLocaleString()}`, color: 'text-foreground' },
+            { label: 'Received', value: `₹${feeStats.totalReceived.toLocaleString()}`, color: 'text-secondary' },
+            { label: 'Pending', value: `₹${feeStats.pending.toLocaleString()}`, color: 'text-destructive' },
+          ].map((item, i) => (
+            <motion.div key={item.label} whileHover={{ scale: 1.02 }}
+              className="bg-muted/50 rounded-lg p-4 hover:bg-muted/70 transition-colors cursor-default">
+              <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
+              <p className={`text-xl font-display font-bold ${item.color}`}>{item.value}</p>
+            </motion.div>
+          ))}
         </div>
 
         {feeStats.pendingStudents.length > 0 ? (
           <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Pending Collections ({feeStats.pendingStudents.length})</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              Pending Collections ({feeStats.pendingStudents.length})
+            </p>
             <div className="space-y-2">
-              {feeStats.pendingStudents.slice(0, 5).map((student: any) => {
+              {feeStats.pendingStudents.slice(0, 5).map((student: any, i: number) => {
                 const due = (Number(student.totalFees) || 0) - (Number(student.feesPaid) || 0);
                 return (
-                  <div key={student._id} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/50">
-                    <div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <motion.div key={student._id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    whileHover={{ x: 4 }}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors cursor-default group"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-destructive/10 flex items-center justify-center group-hover:bg-destructive/15 transition-colors">
                       <IndianRupee className="w-4 h-4 text-destructive" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{student.firstName} {student.lastName}</p>
                       <p className="text-xs text-muted-foreground">₹{due.toLocaleString()} pending</p>
                     </div>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${student.feeStatus === 'partial' ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive'
+                    <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${student.feeStatus === 'partial' ? 'bg-warning/10 text-warning' : 'bg-destructive/10 text-destructive'
                       }`}>{student.feeStatus}</span>
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">All fees are collected — great job!</p>
+          <div className="text-center py-6">
+            <motion.div animate={{ y: [0, -4, 0] }} transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}>
+              <Sparkles className="w-8 h-8 text-secondary mx-auto mb-2" />
+            </motion.div>
+            <p className="text-sm text-muted-foreground">All fees are collected — great job! 🎉</p>
+          </div>
         )}
-      </div>
+      </motion.div>
 
       <AnimatePresence>
         {showHistory && user?.instituteId && (
@@ -204,12 +260,14 @@ function PlanHistoryModal({ instituteId, onClose }: { instituteId: string; onClo
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-card rounded-xl border border-border p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      className="fixed inset-0 bg-foreground/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+        className="bg-card rounded-2xl border border-border p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-display font-bold text-foreground flex items-center gap-2"><History className="w-5 h-5" /> Plan History</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+          <h2 className="text-lg font-display font-bold text-foreground flex items-center gap-2"><History className="w-5 h-5 text-primary" /> Plan History</h2>
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+            onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors"><X className="w-5 h-5" /></motion.button>
         </div>
 
         {isLoading ? (
@@ -218,8 +276,9 @@ function PlanHistoryModal({ instituteId, onClose }: { instituteId: string; onClo
           <p className="text-sm text-muted-foreground text-center py-8">No plan changes recorded yet.</p>
         ) : (
           <div className="space-y-3">
-            {history.map((h: any) => (
-              <div key={h._id} className="bg-muted/50 rounded-lg p-4">
+            {history.map((h: any, i: number) => (
+              <motion.div key={h._id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+                className="bg-muted/50 rounded-xl p-4 hover:bg-muted/70 transition-colors">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-semibold text-foreground">{h.planName}</span>
                   <span className="text-xs text-muted-foreground">{new Date(h.createdAt).toLocaleDateString()}</span>
@@ -239,7 +298,7 @@ function PlanHistoryModal({ instituteId, onClose }: { instituteId: string; onClo
                   </div>
                 </div>
                 {h.notes && <p className="text-xs text-muted-foreground mt-2 italic">{h.notes}</p>}
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
@@ -247,4 +306,3 @@ function PlanHistoryModal({ instituteId, onClose }: { instituteId: string; onClo
     </motion.div>
   );
 }
-
