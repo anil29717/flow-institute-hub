@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { Building2, Users, Plus, Loader2, X, Search, CheckCircle, CreditCard, History } from 'lucide-react';
+import { Building2, Users, Plus, Loader2, X, Search, CheckCircle, CreditCard, History, Key } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -13,6 +13,7 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState('');
   const [historyInstId, setHistoryInstId] = useState<string | null>(null);
   const [assignModal, setAssignModal] = useState<any>(null);
+  const [resetPassInst, setResetPassInst] = useState<any>(null);
 
   const { data: institutes, isLoading: loadingInstitutes } = useQuery({
     queryKey: ['admin_institutes'],
@@ -191,7 +192,11 @@ export default function AdminDashboard() {
                       className="text-xs px-2 py-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
                       Change
                     </button>
-                    <button onClick={() => setHistoryInstId(inst._id)}
+                    <button onClick={() => setResetPassInst(inst)} title="Reset Owner Password"
+                      className="text-xs px-2 py-1 rounded bg-warning/10 text-warning hover:bg-warning/20 transition-colors">
+                      <Key className="w-3 h-3" />
+                    </button>
+                    <button onClick={() => setHistoryInstId(inst._id)} title="Plan History"
                       className="text-xs px-2 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/80 transition-colors">
                       <History className="w-3 h-3" />
                     </button>
@@ -216,6 +221,7 @@ export default function AdminDashboard() {
         {showForm && <AddInstituteModal onClose={() => setShowForm(false)} />}
         {assignModal && <AssignPlanModal institute={assignModal} plans={plans ?? []} onClose={() => setAssignModal(null)} />}
         {historyInstId && <PlanHistoryModal instituteId={historyInstId} onClose={() => setHistoryInstId(null)} />}
+        {resetPassInst && <ResetPasswordModal institute={resetPassInst} onClose={() => setResetPassInst(null)} />}
       </AnimatePresence>
     </div>
   );
@@ -431,6 +437,67 @@ function AddInstituteModal({ onClose }: { onClose: () => void }) {
             <button type="submit" disabled={loading}
               className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
               {loading && <Loader2 className="w-4 h-4 animate-spin" />} Create Institute
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* ── Reset Password Modal ── */
+function ResetPasswordModal({ institute, onClose }: { institute: any; onClose: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ newPassword: '', confirmPassword: '' });
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(prev => ({ ...prev, [k]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (form.newPassword !== form.confirmPassword) {
+      return toast.error("Passwords do not match");
+    }
+    if (form.newPassword.length < 6) {
+      return toast.error("Password must be at least 6 characters");
+    }
+
+    setLoading(true);
+    try {
+      await api.put(`/admin/institutes/${institute._id}/reset-password`, {
+        newPassword: form.newPassword
+      });
+      toast.success(`Password for ${institute.name} updated successfully!`);
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-card rounded-xl border border-border p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-display font-bold text-foreground">Reset Owner Password</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <p className="text-sm text-muted-foreground mb-4">
+            Are you sure you want to force an update on the primary Owner password for <strong>{institute.name}</strong>?
+          </p>
+          <FormField label="New Password" type="text" value={form.newPassword} onChange={set('newPassword')} required minLength={6} placeholder="Min 6 characters" />
+          <FormField label="Confirm Password" type="text" value={form.confirmPassword} onChange={set('confirmPassword')} required minLength={6} placeholder="Re-enter password" />
+
+          <div className="flex gap-3 pt-4 border-t border-border">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-lg border border-border text-foreground font-medium text-sm hover:bg-muted transition-colors">Cancel</button>
+            <button type="submit" disabled={loading}
+              className="flex-1 py-2.5 rounded-lg bg-warning text-warning-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />} Reset Password
             </button>
           </div>
         </form>

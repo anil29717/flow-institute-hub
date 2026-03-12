@@ -93,6 +93,27 @@ router.get('/institutes/:id/plan-history', async (req, res) => {
     res.json([]); // Plan history placeholder
 });
 
+router.put('/institutes/:id/reset-password', async (req, res) => {
+    try {
+        const { newPassword } = req.body;
+        if (!newPassword || newPassword.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+        }
+
+        const inst = await Institute.findById(req.params.id);
+        if (!inst || !inst.ownerUserId) {
+            return res.status(404).json({ error: 'Institute or Owner not found' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await User.findByIdAndUpdate(inst.ownerUserId, { password: hashedPassword });
+
+        res.json({ success: true, message: 'Password updated successfully' });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.post('/institutes', async (req, res) => {
     try {
         const {
