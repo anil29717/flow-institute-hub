@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { Institute } from '../models/Institute';
+import { Notification } from '../models/Notification';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey123';
@@ -89,6 +90,18 @@ router.post('/register-owner', async (req, res) => {
         // Link user to institute
         owner.instituteId = institute._id;
         await owner.save();
+
+        // Notify Admins
+        const admins = await User.find({ role: 'admin' });
+        for (const admin of admins) {
+            await Notification.create({
+                userId: admin._id,
+                title: 'New Institute Registration 🏢',
+                message: `"${instituteName}" has registered. Approval required.`,
+                type: 'info',
+                link: '/admin'
+            });
+        }
 
         return res.json({ success: true, instituteId: institute._id });
     } catch (error: any) {

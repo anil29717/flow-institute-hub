@@ -13,6 +13,9 @@ interface Plan {
   maxTeachers: number;
   price: number;
   isActive: boolean;
+  popular?: boolean;
+  showOnLandingPage?: boolean;
+  features?: string[];
   createdAt: string;
 }
 
@@ -78,7 +81,15 @@ export default function PlansPage() {
               className="bg-card rounded-xl border border-border p-6 hover:shadow-md transition-shadow relative">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
+                    {plan.popular && (
+                      <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">Popular</span>
+                    )}
+                    {plan.showOnLandingPage && (
+                      <span className="px-2 py-0.5 rounded-full bg-secondary/10 text-secondary text-[10px] font-bold uppercase tracking-wider">On Landing Page</span>
+                    )}
+                  </div>
                   <p className="text-2xl font-bold text-primary mt-1">
                     {plan.price === 0 ? 'Free' : `₹${plan.price}`}
                   </p>
@@ -148,6 +159,9 @@ function PlanFormModal({ plan, onClose }: { plan: Plan | null; onClose: () => vo
     maxTeachers: plan?.maxTeachers ?? 2,
     price: plan?.price ?? 0,
     isActive: plan?.isActive ?? true,
+    popular: plan?.popular ?? false,
+    showOnLandingPage: plan?.showOnLandingPage ?? true,
+    features: plan?.features?.join(', ') ?? '',
   });
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -156,12 +170,18 @@ function PlanFormModal({ plan, onClose }: { plan: Plan | null; onClose: () => vo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    const payload = {
+      ...form,
+      features: form.features.split(',').map(f => f.trim()).filter(Boolean),
+    };
+
     try {
       if (plan) {
-        await api.put(`/plans/${plan._id}`, form);
+        await api.put(`/plans/${plan._id}`, payload);
         toast.success('Plan updated');
       } else {
-        await api.post('/plans', form);
+        await api.post('/plans', payload);
         toast.success('Plan created');
       }
       qc.invalidateQueries({ queryKey: ['admin_plans'] });
@@ -190,11 +210,34 @@ function PlanFormModal({ plan, onClose }: { plan: Plan | null; onClose: () => vo
           <Field label="Max Students" type="number" value={form.maxStudents} onChange={set('maxStudents')} required min={1} />
           <Field label="Max Teachers" type="number" value={form.maxTeachers} onChange={set('maxTeachers')} required min={1} />
 
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input type="checkbox" checked={form.isActive} onChange={e => setForm(prev => ({ ...prev, isActive: e.target.checked }))}
-              className="rounded border-input" />
-            Active
-          </label>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-foreground mb-1 block">Features (comma separated)</label>
+            <textarea
+               value={form.features}
+               onChange={e => setForm(prev => ({ ...prev, features: e.target.value }))}
+               placeholder="Attendance, Fee Tracking, Reports"
+               className="w-full px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+               rows={3}
+            />
+          </div>
+
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input type="checkbox" checked={form.isActive} onChange={e => setForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                className="rounded border-input" />
+              Active
+            </label>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input type="checkbox" checked={form.popular} onChange={e => setForm(prev => ({ ...prev, popular: e.target.checked }))}
+                className="rounded border-input text-primary focus:ring-primary" />
+              Most Popular
+            </label>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input type="checkbox" checked={form.showOnLandingPage} onChange={e => setForm(prev => ({ ...prev, showOnLandingPage: e.target.checked }))}
+                className="rounded border-input text-secondary focus:ring-secondary" />
+              Show on Landing Page
+            </label>
+          </div>
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}

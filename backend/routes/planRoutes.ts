@@ -7,7 +7,20 @@ const router = express.Router();
 // GET all plans
 router.get('/', async (req, res) => {
     try {
-        const plans = await Plan.find().sort({ price: 1 });
+        const isLanding = req.query.landing === 'true';
+        let query: any = {};
+        
+        if (isLanding) {
+            query.showOnLandingPage = true;
+            query.isActive = true;
+        }
+
+        let plansQuery = Plan.find(query).sort({ price: 1 });
+        if (isLanding) {
+            plansQuery = plansQuery.limit(3);
+        }
+
+        const plans = await plansQuery;
         res.json(plans);
     } catch (err: any) {
         res.status(500).json({ error: err.message });

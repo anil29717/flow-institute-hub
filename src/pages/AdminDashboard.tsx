@@ -14,6 +14,7 @@ export default function AdminDashboard() {
   const [historyInstId, setHistoryInstId] = useState<string | null>(null);
   const [assignModal, setAssignModal] = useState<any>(null);
   const [resetPassInst, setResetPassInst] = useState<any>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const { data: institutes, isLoading: loadingInstitutes } = useQuery({
     queryKey: ['admin_institutes'],
@@ -53,14 +54,24 @@ export default function AdminDashboard() {
           <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">Admin Dashboard</h1>
           <p className="text-muted-foreground mt-1">Manage all institutes, plans, and users</p>
         </motion.div>
-        <motion.button
-          whileHover={{ scale: 1.03, y: -1 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => setShowForm(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-medium text-sm hover:shadow-lg hover:shadow-primary/20 transition-shadow"
-        >
-          <Plus className="w-4 h-4" /> Add Institute
-        </motion.button>
+        <div className="flex flex-wrap items-center gap-3">
+          <motion.button
+            whileHover={{ scale: 1.03, y: -1 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setShowPasswordModal(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border bg-card text-foreground font-medium text-sm hover:bg-muted transition-all"
+          >
+            <Key className="w-4 h-4 text-primary" /> Change Password
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.03, y: -1 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-medium text-sm hover:shadow-lg hover:shadow-primary/20 transition-shadow"
+          >
+            <Plus className="w-4 h-4" /> Add Institute
+          </motion.button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -243,6 +254,7 @@ export default function AdminDashboard() {
         {assignModal && <AssignPlanModal institute={assignModal} plans={plans ?? []} onClose={() => setAssignModal(null)} />}
         {historyInstId && <PlanHistoryModal instituteId={historyInstId} onClose={() => setHistoryInstId(null)} />}
         {resetPassInst && <ResetPasswordModal institute={resetPassInst} onClose={() => setResetPassInst(null)} />}
+        {showPasswordModal && <AdminPasswordModal onClose={() => setShowPasswordModal(false)} />}
       </AnimatePresence>
     </div>
   );
@@ -519,6 +531,71 @@ function ResetPasswordModal({ institute, onClose }: { institute: any; onClose: (
             <button type="submit" disabled={loading}
               className="flex-1 py-2.5 rounded-lg bg-warning text-warning-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
               {loading && <Loader2 className="w-4 h-4 animate-spin" />} Reset Password
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function AdminPasswordModal({ onClose }: { onClose: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(prev => ({ ...prev, [k]: e.target.value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (form.newPassword !== form.confirmPassword) {
+      return toast.error('Passwords do not match');
+    }
+    setLoading(true);
+    try {
+      await api.put('/admin/password', {
+        currentPassword: form.currentPassword,
+        newPassword: form.newPassword
+      });
+      toast.success('Password updated successfully');
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-card rounded-xl border border-border p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Key className="w-4 h-4 text-primary" />
+            </div>
+            <h2 className="text-lg font-display font-bold text-foreground">Change Password</h2>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <FormField label="Current Password" type="password" value={form.currentPassword} onChange={set('currentPassword')} required />
+          <FormField label="New Password" type="password" value={form.newPassword} onChange={set('newPassword')} required minLength={6} placeholder="Min 6 characters" />
+          <FormField label="Confirm New Password" type="password" value={form.confirmPassword} onChange={set('confirmPassword')} required minLength={6} placeholder="Re-enter password" />
+
+          <div className="flex gap-3 pt-4 border-t border-border">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-lg border border-border text-foreground font-medium text-sm hover:bg-muted transition-colors">Cancel</button>
+            <button type="submit" disabled={loading}
+              className="flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />} Update
             </button>
           </div>
         </form>

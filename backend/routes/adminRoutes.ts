@@ -4,7 +4,8 @@ import { Institute } from '../models/Institute';
 import { Plan } from '../models/Plan';
 import { User } from '../models/User';
 import { Student } from '../models/Student';
-import { verifyToken, requireAdmin } from '../middlewares/auth';
+import { Notification } from '../models/Notification';
+import { verifyToken, requireAdmin, AuthRequest } from '../middlewares/auth';
 
 const router = express.Router();
 
@@ -58,7 +59,20 @@ router.get('/stats', async (req, res) => {
 
 router.put('/institutes/:id/approve', async (req, res) => {
     try {
-        const inst = await Institute.findByIdAndUpdate(req.params.id, { isApproved: req.body.isApproved }, { new: true });
+        const { isApproved } = req.body;
+        const inst = await Institute.findByIdAndUpdate(req.params.id, { isApproved }, { new: true });
+        
+        if (inst && isApproved && inst.ownerUserId) {
+            // Notify the owner
+            await Notification.create({
+                userId: inst.ownerUserId,
+                title: 'Institute Approved! 🎉',
+                message: `Congratulations! Your institute "${inst.name}" has been approved. You can now access all features.`,
+                type: 'success',
+                link: '/dashboard'
+            });
+        }
+        
         res.json(inst);
     } catch (err: any) {
         res.status(500).json({ error: err.message });
@@ -159,6 +173,34 @@ router.post('/institutes', async (req, res) => {
         res.json({ success: true, instituteId: institute._id });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/password', async (req: AuthRequest, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        
+        if (!newPassword || newPassword.length < 6) {
+            return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+        }
+
+        const adminUser = await User.findById(req.user?.userId);
+        if (!adminUser) {
+            return res.status(404).json({ error: 'Admin user not found' });
+        }
+
+        const isValid = await bcrypt.compare(currentPassword, adminUser.password);
+        if (!isValid) {
+            return res.status(400).json({ error: 'Incorrect current password' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        adminUser.password = hashedPassword;
+        await adminUser.save();
+
+        res.json({ success: true, message: 'Password updated successfully' });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
     }
 });
 

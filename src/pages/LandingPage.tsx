@@ -7,6 +7,9 @@ import {
   Sparkles, Building2, Award, TrendingUp, Play, Menu, X
 } from 'lucide-react';
 import { SEO } from "@/components/seo/SEO";
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/api/client';
+import { Loader2 } from 'lucide-react';
 
 /* ── Animation Variants ── */
 const fadeUp = { hidden: { y: 40, opacity: 0 }, visible: { y: 0, opacity: 1 } };
@@ -105,11 +108,7 @@ const features = [
   { icon: Bell, title: 'Smart Notifications', desc: 'Automated fee reminders, leave alerts, and plan expiry notifications.', color: 'from-rose-500/10 to-rose-600/5' },
 ];
 
-const plans = [
-  { name: 'Starter', price: '₹499', period: '/month', students: 10, teachers: 2, features: ['Student Management', 'Attendance', 'Fee Tracking', 'Basic Reports'] },
-  { name: 'Growth', price: '₹999', period: '/month', students: 50, teachers: 5, features: ['Everything in Starter', 'Advanced Analytics', 'SMS Reminders', 'Priority Support'], popular: true },
-  { name: 'Enterprise', price: '₹1,999', period: '/month', students: 200, teachers: 20, features: ['Everything in Growth', 'Multi-branch', 'Custom Reports', 'Dedicated Support'] },
-];
+// Plans are now fetched dynamically
 
 const testimonials = [
   { name: 'Rajesh Kumar', role: 'Owner, Excel Coaching', text: 'InstiFlow transformed how we manage our coaching center. Fee tracking alone saved us 10+ hours per month.', avatar: 'R' },
@@ -131,6 +130,15 @@ export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -80]);
+
+  // Fetch plans
+  const { data: plans = [], isLoading: loadingPlans } = useQuery({
+    queryKey: ['public_plans'],
+    queryFn: async () => {
+      const data = await api.get('/plans?landing=true');
+      return data;
+    }
+  });
   const heroOpacity = useTransform(scrollYProgress, [0, 0.25], [1, 0.3]);
 
   // Animated counters
@@ -443,41 +451,44 @@ export default function LandingPage() {
             <p className="text-muted-foreground text-lg">No hidden fees. Start free, upgrade anytime.</p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {plans.map((plan, i) => (
-              <motion.div key={plan.name} initial="hidden" whileInView="visible" viewport={{ once: true }}
-                variants={fadeUp} transition={{ delay: i * 0.12 }}>
-                <motion.div
-                  whileHover={{ y: -8, scale: 1.02 }}
-                  transition={{ type: 'spring', stiffness: 300 }}
-                  className={`bg-card rounded-2xl border p-6 flex flex-col relative h-full ${plan.popular
-                      ? 'border-primary shadow-2xl shadow-primary/15 ring-1 ring-primary/20'
-                      : 'border-border hover:border-primary/20 hover:shadow-xl'
-                    } transition-all duration-300`}
-                >
-                  {plan.popular && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-primary to-secondary text-primary-foreground text-xs font-semibold shadow-lg">
-                      🔥 Most Popular
-                    </span>
-                  )}
-                  <h3 className="font-display font-bold text-xl text-foreground">{plan.name}</h3>
-                  <div className="mt-4 mb-2">
-                    <span className="text-4xl font-display font-bold text-foreground">{plan.price}</span>
-                    <span className="text-muted-foreground text-sm">{plan.period}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-5">
-                    Up to {plan.students} students · {plan.teachers} teachers
-                  </p>
-                  <ul className="space-y-2.5 flex-1 mb-6">
-                    {plan.features.map(f => (
-                      <li key={f} className="flex items-start gap-2 text-sm text-foreground">
-                        <CheckCircle className="w-4 h-4 text-secondary flex-shrink-0 mt-0.5" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link to="/register"
-                    className={`w-full py-3 rounded-xl text-sm font-semibold text-center transition-all duration-300 block ${plan.popular
+          {loadingPlans ? (
+            <div className="flex justify-center items-center h-48 w-full"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
+          ) : (
+            <div className={`grid grid-cols-1 md:grid-cols-${Math.min(plans.length, 3)} gap-6 max-w-5xl mx-auto`}>
+              {plans.map((plan: any, i: number) => (
+                <motion.div key={plan._id || plan.name} initial="hidden" whileInView="visible" viewport={{ once: true }}
+                  variants={fadeUp} transition={{ delay: i * 0.12 }}>
+                  <motion.div
+                    whileHover={{ y: -8, scale: 1.02 }}
+                    transition={{ type: 'spring', stiffness: 300 }}
+                    className={`bg-card rounded-2xl border p-6 flex flex-col relative h-full ${plan.popular
+                        ? 'border-primary shadow-2xl shadow-primary/15 ring-1 ring-primary/20'
+                        : 'border-border hover:border-primary/20 hover:shadow-xl'
+                      } transition-all duration-300`}
+                  >
+                    {plan.popular && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-primary to-secondary text-primary-foreground text-xs font-semibold shadow-lg">
+                        🔥 Most Popular
+                      </span>
+                    )}
+                    <h3 className="font-display font-bold text-xl text-foreground">{plan.name}</h3>
+                    <div className="mt-4 mb-2">
+                      <span className="text-4xl font-display font-bold text-foreground">{plan.price === 0 ? 'Free' : `₹${plan.price}`}</span>
+                      <span className="text-muted-foreground text-sm">/month</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-5">
+                      Up to {plan.maxStudents} students · {plan.maxTeachers} teachers
+                    </p>
+                    <ul className="space-y-2.5 flex-1 mb-6">
+                      {plan.features?.map((f: string) => (
+                        <li key={f} className="flex items-start gap-2 text-sm text-foreground">
+                          <CheckCircle className="w-4 h-4 text-secondary flex-shrink-0 mt-0.5" />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                    <Link to="/register"
+                      className={`w-full py-3 rounded-xl text-sm font-semibold text-center transition-all duration-300 block ${plan.popular
                         ? 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:shadow-lg hover:shadow-primary/20'
                         : 'border border-border text-foreground hover:bg-muted hover:border-primary/20'
                       }`}>
@@ -487,6 +498,7 @@ export default function LandingPage() {
               </motion.div>
             ))}
           </div>
+          )}
         </div>
       </section>
 

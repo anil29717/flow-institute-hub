@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
@@ -101,19 +102,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.03 }}
                   whileHover={{ x: 3 }}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative group ${isActive
-                      ? 'bg-accent text-accent-foreground shadow-md shadow-accent/15'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${isActive
+                      ? 'bg-accent text-accent-foreground shadow-md shadow-accent/15 border-l-[3px] border-accent-foreground'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground border-l-[3px] border-transparent'
                     } ${!sidebarOpen ? 'justify-center' : ''}`}
                   title={!sidebarOpen ? item.label : undefined}
                 >
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeNav"
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-accent-foreground rounded-r-full"
-                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                    />
-                  )}
                   <Icon className="w-5 h-5 flex-shrink-0" />
                   {sidebarOpen && <span>{item.label}</span>}
                   {isActive && sidebarOpen && <ChevronRight className="w-4 h-4 ml-auto opacity-60" />}
@@ -162,16 +156,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex-1" />
-
-          {/* Notification Bell */}
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="relative text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted"
-          >
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full ring-2 ring-card" />
-          </motion.button>
+          <NotificationCenter />
         </header>
 
         {/* Page Content */}
